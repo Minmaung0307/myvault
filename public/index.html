@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MyVault - Personal Secure Archive</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#020817" />
+
+    <link rel="stylesheet" href="style.css" />
+    <link rel="manifest" href="manifest.webmanifest" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <!-- HEADER -->
+      <header class="app-header">
+        <div class="logo">
+          <div class="logo-circle">🔐</div>
+          <div>
+            <h1>MyVault</h1>
+            <p>Personal Secure Archive in your own Google Drive</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <div class="settings-inline">
+            <select id="theme-select">
+              <option value="dark">Dark</option>
+              <option value="light">Light</option>
+              <option value="amoled">AMOLED</option>
+            </select>
+            <select id="font-select">
+              <option value="sm">A-</option>
+              <option value="md" selected>A</option>
+              <option value="lg">A+</option>
+            </select>
+          </div>
+          <button id="btn-signin" class="btn primary" disabled>
+            Sign in with Google
+          </button>
+          <button id="btn-signout" class="btn ghost hidden">Sign Out</button>
+        </div>
+      </header>
+
+      <!-- DASHBOARD CARDS -->
+      <section class="card dashboard">
+        <h2>Vault Overview</h2>
+        <p class="hint">
+          Quick view of your categories. Click a card → enter Vault Password →
+          see items in that group.
+        </p>
+        <div id="dashboard-cards" class="dash-grid">
+          <!-- JS will render category cards here -->
+        </div>
+      </section>
+
+      <!-- MAIN LAYOUT -->
+      <main class="layout">
+        <!-- LEFT: PASSWORD + UPLOAD -->
+        <section class="panel">
+          <h2>Vault Lock & Upload</h2>
+          <p class="hint">
+            ① Sign in with Google ② Set Vault Password ③ Encrypt & Upload files
+            into your MyVault.
+          </p>
+
+          <!-- Vault Password -->
+          <div class="card">
+            <label class="label">Vault Password</label>
+            <input
+              type="password"
+              id="vault-password"
+              placeholder="Choose a strong password"
+            />
+            <p class="mini-hint">
+              This password never leaves your browser. It encrypts & decrypts
+              your files.
+              <strong>Do not forget it.</strong>
+            </p>
+            <p id="vault-password-status" class="status"></p>
+            <button id="btn-lock" class="btn small ghost" type="button">
+              🔒 Use this password
+            </button>
+          </div>
+
+          <!-- Upload Form -->
+          <form id="upload-form" class="card">
+            <h3>Upload New Item</h3>
+
+            <div class="form-row">
+              <label>Title</label>
+              <input
+                type="text"
+                id="file-title"
+                placeholder="e.g. 2024 Tax Return"
+                required
+              />
+            </div>
+
+            <div class="form-row">
+              <label>Category</label>
+              <select id="file-category">
+                <option value="tax">Tax Returns</option>
+                <option value="ids">IDs & Passports</option>
+                <option value="business">Business Agreements</option>
+                <option value="housing">Housing / Lease / Mortgage</option>
+                <option value="membership">Memberships & Cards</option>
+                <option value="payment">Payments & Insurance</option>
+                <option value="photos">Photos & Albums</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            <div class="form-row" id="album-row" style="display: none">
+              <label>Album (for photos)</label>
+              <input
+                type="text"
+                id="file-album"
+                placeholder="e.g. Family 2025, Documents Scan"
+              />
+            </div>
+
+            <div class="form-row">
+              <label>Tags</label>
+              <input
+                type="text"
+                id="file-tags"
+                placeholder="e.g. 2024, IRS, car, house"
+              />
+            </div>
+
+            <div class="form-row">
+              <label>Date</label>
+              <input type="date" id="file-date" />
+            </div>
+
+            <div class="form-row">
+              <label>File</label>
+              <input type="file" id="file-input" required />
+            </div>
+
+            <button type="submit" class="btn full primary">
+              Encrypt & Upload to MyVault
+            </button>
+            <p id="upload-status" class="status"></p>
+          </form>
+        </section>
+
+        <!-- RIGHT: LIST + ACTIVITY -->
+        <section class="panel">
+          <h2>Your Vault (All Items)</h2>
+
+          <div class="card">
+            <div class="search-row">
+              <input
+                type="text"
+                id="search-input"
+                placeholder="Search by title, tags, album..."
+              />
+              <select id="filter-category">
+                <option value="">All</option>
+                <option value="tax">Tax</option>
+                <option value="ids">IDs</option>
+                <option value="business">Business</option>
+                <option value="housing">Housing</option>
+                <option value="membership">Memberships</option>
+                <option value="payment">Payments</option>
+                <option value="photos">Photos</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="vault-list" class="vault-list card">
+            <p class="hint">
+              Sign in with Google to load your encrypted items.
+            </p>
+          </div>
+
+          <div class="card soft">
+            <h3>Activity Log</h3>
+            <ul id="activity-list" class="mini-list"></ul>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- CATEGORY MODAL -->
+    <div id="category-modal" class="modal hidden">
+      <div class="modal-backdrop"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="modal-title"></h3>
+          <button id="modal-close" class="btn small ghost">✕</button>
+        </div>
+        <div id="modal-body" class="modal-body">
+          <!-- Filled by JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- PREVIEW MODAL -->
+    <div id="preview-modal" class="modal hidden">
+      <div class="modal-backdrop"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="preview-title">Preview</h3>
+          <button id="preview-close" class="btn small ghost">✕</button>
+        </div>
+        <div id="preview-body" class="modal-body preview-body">
+          <!-- filled by JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- EDIT MODAL -->
+    <div id="edit-modal" class="modal hidden">
+      <div class="modal-backdrop"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Edit Item</h3>
+          <button id="edit-close" class="btn small ghost">✕</button>
+        </div>
+        <div class="modal-body">
+          <form id="edit-form" class="edit-form">
+            <input type="hidden" id="edit-id" />
+            <div class="form-row">
+              <label class="label">Title</label>
+              <input type="text" id="edit-title" />
+            </div>
+            <div class="form-row">
+              <label class="label">Category</label>
+              <select id="edit-category">
+                <option value="tax">Tax Returns</option>
+                <option value="ids">IDs & Passports</option>
+                <option value="business">Business</option>
+                <option value="housing">Housing</option>
+                <option value="membership">Memberships</option>
+                <option value="payment">Payments</option>
+                <option value="photos">Photos & Albums</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label class="label">Album (photos)</label>
+              <input type="text" id="edit-album" />
+            </div>
+            <div class="form-row">
+              <label class="label">Tags (comma separated)</label>
+              <input type="text" id="edit-tags" />
+            </div>
+            <div class="form-row">
+              <label class="label">Date</label>
+              <input type="date" id="edit-date" />
+            </div>
+            <button type="submit" class="btn full primary">Save changes</button>
+            <p id="edit-status" class="status"></p>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+
+    <!-- Google APIs (loaded last) -->
+    <script
+      src="https://apis.google.com/js/api.js"
+      async
+      defer
+      onload="gapiLoaded()"
+    ></script>
+    <script
+      src="https://accounts.google.com/gsi/client"
+      async
+      defer
+      onload="gisLoaded()"
+    ></script>
+
+    <script>
+      // Register service worker
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("./sw.js").catch(console.error);
+      }
+    </script>
+  </body>
+</html>
