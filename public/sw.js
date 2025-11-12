@@ -26,6 +26,14 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
+  const url = new URL(event.request.url);
+
+  // 1) Non-GET requests မထိ
+  if (event.request.method !== "GET") return;
+
+  // 2) Cross-origin (e.g., Google APIs) မထိ
+  if (url.origin !== self.location.origin) return;
+  
   const { request } = event;
   // Only cache GET & same-origin
   if (request.method !== "GET" || !request.url.startsWith(self.location.origin)) {

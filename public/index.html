@@ -130,11 +130,35 @@
             <div class="form-row">
               <label>Date</label>
               <input type="date" id="file-date" />
+              <button
+                type="button"
+                id="btn-date-picker"
+                class="btn small ghost"
+                title="Pick a date"
+              >
+                📅
+              </button>
+              <button
+                type="button"
+                id="btn-date-today"
+                class="btn small ghost"
+                title="Today"
+              >
+                Today
+              </button>
+              <button
+                type="button"
+                id="btn-date-clear"
+                class="btn small ghost"
+                title="Clear"
+              >
+                Clear
+              </button>
             </div>
 
             <div class="form-row">
               <label>File</label>
-              <input type="file" id="file-input" required />
+              <input type="file" id="file-input" multiple required />
             </div>
 
             <button type="submit" class="btn full primary">
@@ -203,7 +227,25 @@
       <div class="modal-content">
         <div class="modal-header">
           <h3 id="preview-title">Preview</h3>
-          <button id="preview-close" class="btn small ghost">✕</button>
+          <div class="actions">
+            <button id="pdf-zoom-out" class="btn small ghost" title="Zoom out">
+              −
+            </button>
+            <button id="pdf-zoom-in" class="btn small ghost" title="Zoom in">
+              ＋
+            </button>
+            <button
+              id="pdf-open-tab"
+              class="btn small ghost"
+              title="Open in new tab"
+            >
+              ↗
+            </button>
+            <button id="preview-expand" class="btn small" title="Expand">
+              ↔
+            </button>
+            <button id="preview-close" class="btn small ghost">✕</button>
+          </div>
         </div>
         <div id="preview-body" class="modal-body preview-body">
           <!-- filled by JS -->

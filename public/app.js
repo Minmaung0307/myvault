@@ -51,10 +51,15 @@ const modal = document.getElementById("category-modal");
 const modalTitle = document.getElementById("modal-title");
 const modalBody = document.getElementById("modal-body");
 const modalClose = document.getElementById("modal-close");
-const previewModal = document.getElementById("preview-modal");
-const previewTitle = document.getElementById("preview-title");
-const previewBody = document.getElementById("preview-body");
-const previewClose = document.getElementById("preview-close");
+
+const previewModal  = document.getElementById("preview-modal");
+const previewBody   = document.getElementById("preview-body");
+const previewTitle  = document.getElementById("preview-title");
+const previewClose  = document.getElementById("preview-close");
+const btnExpand     = document.getElementById("preview-expand");
+const btnZoomIn     = document.getElementById("pdf-zoom-in");
+const btnZoomOut    = document.getElementById("pdf-zoom-out");
+const btnOpenTab    = document.getElementById("pdf-open-tab");
 
 const editModal = document.getElementById("edit-modal");
 const editForm = document.getElementById("edit-form");
@@ -90,6 +95,42 @@ fontSelect.addEventListener("change", () => {
   const v = fontSelect.value;
   root.dataset.font = v;
   localStorage.setItem("myvault_font", v);
+});
+
+// expand / collapse (XL modal)
+btnExpand?.addEventListener("click", () => {
+  const box = previewModal.querySelector(".modal-content");
+  box.classList.toggle("modal-xl");
+});
+
+// zoom for PDF: height +/- 10vh (simple & effective)
+btnZoomIn?.addEventListener("click", () => {
+  const pdf = previewBody.querySelector(".preview-pdf");
+  if (!pdf) return;
+  const cur = parseInt(pdf.style.height || getComputedStyle(pdf).height, 10);
+  const vh  = Math.min(96, Math.round((cur / window.innerHeight) * 100) + 10);
+  pdf.style.height = vh + "vh";
+});
+btnZoomOut?.addEventListener("click", () => {
+  const pdf = previewBody.querySelector(".preview-pdf");
+  if (!pdf) return;
+  const cur = parseInt(pdf.style.height || getComputedStyle(pdf).height, 10);
+  const vh  = Math.max(40, Math.round((cur / window.innerHeight) * 100) - 10);
+  pdf.style.height = vh + "vh";
+});
+
+// open in new tab (use the same blob URL if present)
+btnOpenTab?.addEventListener("click", () => {
+  const emb = previewBody.querySelector(".preview-pdf");
+  const img = previewBody.querySelector(".preview-image");
+  const url = emb?.src || img?.src;
+  if (url) window.open(url, "_blank", "noopener");
+});
+
+// (nice to have) double-click to toggle XL
+previewBody.addEventListener("dblclick", () => {
+  const box = previewModal.querySelector(".modal-content");
+  box.classList.toggle("modal-xl");
 });
 
 // ===== GOOGLE API LOAD CALLBACKS =====
@@ -129,7 +170,23 @@ async function initGapiClient() {
 function maybeEnableSignin() {
   if (gapiInited && gisInited) {
     btnSignin.disabled = false;
+    // 🔇 Try silent sign-in (no prompt). If user has granted before, we get a token.
+    trySilentSignIn();
   }
+}
+
+function trySilentSignIn() {
+  if (!tokenClient) return;
+  const prevCb = tokenClient.callback;
+  tokenClient.callback = (resp) => {
+    if (!resp.error) {
+      accessToken = resp.access_token;
+      onSignedIn();
+    }
+    tokenClient.callback = prevCb; // restore
+  };
+  // empty prompt => no account chooser if already consented
+  tokenClient.requestAccessToken({ prompt: "" });
 }
 
 // ===== AUTH =====
@@ -162,6 +219,15 @@ function toggleAuthButtons(loggedIn) {
     btnSignout.classList.add("hidden");
   }
 }
+
+(function primeCache() {
+  const cache = localStorage.getItem("myvault_meta_cache");
+  if (cache) {
+    try { metadata = JSON.parse(cache) || []; } catch {}
+    renderVaultList();
+    renderDashboard();
+  }
+})();
 
 async function onSignedIn() {
   toggleAuthButtons(true);
@@ -246,29 +312,56 @@ async function ensureMetadataFile() {
 }
 
 async function loadMetadata() {
-  if (!metadataFileId) {
-    metadata = [];
-    return;
+  if (!metadataFileId) { metadata = []; return; }
+
+  try {
+    const resp = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(metadataFileId)}?alt=media`,
+      { headers: authHeaders() }
+    );
+    if (!resp.ok) {
+      const text = await resp.text().catch(()=> "");
+      throw new Error(`loadMetadata failed ${resp.status}: ${text.slice(0,200)}`);
+    }
+    const text = await resp.text();
+    const arr = JSON.parse(text); // <-- parse JSON body
+    if (Array.isArray(arr)) {
+      metadata = arr;
+      // cache locally (see #2)
+      localStorage.setItem("myvault_meta_cache", JSON.stringify(arr));
+    } else {
+      console.warn("metadata is not array; keeping previous");
+    }
+  } catch (e) {
+    console.error("loadMetadata error; using local cache if any", e);
+    // fallback to cache
+    const cache = localStorage.getItem("myvault_meta_cache");
+    if (cache) {
+      try { metadata = JSON.parse(cache) || []; } catch {}
+    } else {
+      if (!Array.isArray(metadata)) metadata = [];
+    }
   }
-  const res = await gapi.client.drive.files.get({
-    fileId: metadataFileId,
-    alt: "media",
-  });
-  metadata = Array.isArray(res.result) ? res.result : [];
 }
 
 async function saveMetadata() {
   if (!metadataFileId) return;
-  const blob = new Blob([JSON.stringify(metadata, null, 2)], {
-    type: "application/json",
-  });
-  await gapi.client.request({
-    path: `/upload/drive/v3/files/${metadataFileId}`,
-    method: "PATCH",
-    params: { uploadType: "media" },
-    headers: authHeaders(),
-    body: blob,
-  });
+  const json = JSON.stringify(metadata, null, 2);
+
+  const resp = await fetch(
+    `https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(metadataFileId)}?uploadType=media`,
+    {
+      method: "PATCH",
+      headers: { Authorization: "Bearer " + accessToken, "Content-Type": "application/json; charset=UTF-8" },
+      body: json,
+    }
+  );
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    throw new Error(`saveMetadata failed ${resp.status}: ${text.slice(0,200)}`);
+  }
+  // ✅ update local cache after successful sync
+  localStorage.setItem("myvault_meta_cache", JSON.stringify(metadata));
 }
 
 function buildMultipartBody(meta, data, dataType) {
@@ -284,32 +377,50 @@ function buildMultipartBody(meta, data, dataType) {
   });
 }
 
+// 1) create metadata-only file, 2) upload content via media PATCH (fetch)
 async function uploadEncryptedFileToVault(encryptedBlob, originalName) {
-  const meta = {
-    name: originalName + ".enc",
-    parents: [vaultFolderId],
-  };
-  const boundary = "-------vaultboundaryfile";
-  let head = "";
-  head += "--" + boundary + "\r\n";
-  head += "Content-Type: application/json; charset=UTF-8\r\n\r\n";
-  head += JSON.stringify(meta) + "\r\n";
-  head += "--" + boundary + "\r\n";
-  head += "Content-Type: application/octet-stream\r\n\r\n";
-
-  const body = new Blob([head, encryptedBlob, "\r\n--" + boundary + "--"], {
-    type: "multipart/related; boundary=" + boundary,
+  // (1) create empty file (metadata only)
+  const createRes = await gapi.client.drive.files.create({
+    resource: {
+      name: originalName + ".enc",
+      parents: [vaultFolderId],
+      mimeType: "application/octet-stream",
+    },
+    fields: "id",
   });
+  const fileId = createRes.result.id;
 
-  const res = await gapi.client.request({
-    path: "/upload/drive/v3/files",
-    method: "POST",
-    params: { uploadType: "multipart", fields: "id,name" },
-    headers: authHeaders(),
-    body,
+  // (2) upload content as media using fetch (sets Content-Type explicitly)
+  const resp = await fetch(
+    `https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(
+      fileId
+    )}?uploadType=media`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: "Bearer " + accessToken,
+        "Content-Type": "application/octet-stream",
+      },
+      body: encryptedBlob,
+    }
+  );
+
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    throw new Error(
+      `Media upload failed ${resp.status}: ${text?.slice(0, 200)}`
+    );
+  }
+
+  return fileId;
+}
+
+async function getRemoteFileMeta(fileId) {
+  const res = await gapi.client.drive.files.get({
+    fileId,
+    fields: "id,name,size,mimeType,md5Checksum",
   });
-
-  return res.result.id;
+  return res.result;
 }
 
 async function downloadFileBlob(fileId) {
@@ -317,7 +428,25 @@ async function downloadFileBlob(fileId) {
     fileId
   )}?alt=media`;
   const resp = await fetch(url, { headers: authHeaders() });
-  return await resp.blob();
+
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    // Drive error ကို တိတိ ပြမယ် (signin/scope/tester 문제)
+    throw new Error(
+      `Drive download failed ${resp.status}: ${text?.slice(0, 200)}`
+    );
+  }
+
+  const blob = await resp.blob();
+  // AES-GCM tag သာ 16 bytes လောက်လိုတယ် => file အလွန်သေးမယ်ဆို "too small" ဖြစ်နိုင်
+  if (!blob || blob.size < 32) {
+    throw new Error(
+      `Encrypted blob too small (${
+        blob?.size || 0
+      }B) — likely not the encrypted file.`
+    );
+  }
+  return blob;
 }
 
 // ===== CRYPTO =====
@@ -390,6 +519,24 @@ function base64ToBytes(b64) {
 
 // ===== UPLOAD =====
 
+// after DOM refs near file-date input:
+const fileDate = document.getElementById("file-date");
+document.getElementById("btn-date-picker").addEventListener("click", () => {
+  // Chrome/Edge/Safari have showPicker; others fallback to focus
+  if (typeof fileDate.showPicker === "function") fileDate.showPicker();
+  else fileDate.focus();
+});
+document.getElementById("btn-date-today").addEventListener("click", () => {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  fileDate.value = `${yyyy}-${mm}-${dd}`;
+});
+document.getElementById("btn-date-clear").addEventListener("click", () => {
+  fileDate.value = "";
+});
+
 // show album for photos
 document.getElementById("file-category").addEventListener("change", (e) => {
   if (e.target.value === "photos") {
@@ -405,76 +552,77 @@ uploadForm.addEventListener("submit", async (e) => {
   uploadStatus.textContent = "";
   uploadStatus.className = "status";
 
-  if (!accessToken) {
-    uploadStatus.textContent = "Please sign in with Google first.";
-    uploadStatus.classList.add("err");
-    return;
-  }
-
-  const password = vaultPasswordInput.value.trim();
-  if (!password) {
-    uploadStatus.textContent = "Enter your vault password.";
-    uploadStatus.classList.add("err");
-    return;
-  }
-
-  const fileEl = document.getElementById("file-input");
-  const file = fileEl.files[0];
-  if (!file) {
-    uploadStatus.textContent = "Select a file.";
-    uploadStatus.classList.add("err");
-    return;
-  }
-
-  const title = document.getElementById("file-title").value.trim() || file.name;
-  const category = document.getElementById("file-category").value || "other";
-  const tagsRaw = document.getElementById("file-tags").value.trim();
-  const date = document.getElementById("file-date").value || null;
-  const album = albumInput.value.trim() || null;
-  const tags = tagsRaw
-    ? tagsRaw
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean)
-    : [];
-
   try {
-    uploadStatus.textContent = "Encrypting file...";
-    const { blob, iv, salt } = await encryptFileWithPassword(file, password);
+    if (!accessToken) { uploadStatus.textContent = "Please sign in with Google first."; uploadStatus.className = "status err"; return; }
 
-    uploadStatus.textContent = "Uploading to Google Drive...";
-    const fileId = await uploadEncryptedFileToVault(blob, file.name);
+    const password = vaultPasswordInput.value.trim();
+    if (!password) { uploadStatus.textContent = "Enter your vault password."; uploadStatus.className = "status err"; return; }
 
-    const createdAt = new Date().toISOString();
-    const entry = {
-      id: fileId,
-      title,
-      category,
-      tags,
-      album,
-      date,
-      originalName: file.name,
-      size: file.size,
-      mimeType: file.type,
-      iv,
-      salt,
-      createdAt,
-      logs: [{ type: "upload", ts: createdAt }],
-    };
-    metadata.push(entry);
-    await saveMetadata();
+    const fileEl = document.getElementById("file-input");
+    const fileDateEl = document.getElementById("file-date");
+    const albumEl = document.getElementById("file-album");
 
-    uploadStatus.textContent = "Uploaded & saved securely.";
-    uploadStatus.classList.add("ok");
+    const files = Array.from(fileEl.files || []);
+    if (!files.length) { uploadStatus.textContent = "Select at least one file."; uploadStatus.className = "status err"; return; }
+
+    const title = document.getElementById("file-title").value.trim();
+    const category = document.getElementById("file-category").value || "other";
+    const tagsRaw = document.getElementById("file-tags").value.trim();
+    const date = fileDateEl?.value || null;
+    const album = albumEl?.value?.trim() || null;
+    const tags = tagsRaw ? tagsRaw.split(",").map(t=>t.trim()).filter(Boolean) : [];
+
+    let ok = 0, fail = 0;
+
+    for (const file of files) {
+      try {
+        uploadStatus.textContent = `Encrypting: ${file.name}...`;
+        const { blob, iv, salt } = await encryptFileWithPassword(file, password);
+
+        uploadStatus.textContent = `Uploading: ${file.name}...`;
+        const fileId = await uploadEncryptedFileToVault(blob, file.name);
+
+        const remote = await getRemoteFileMeta(fileId);
+        if (!remote.size || Number(remote.size) < 32) {
+          throw new Error(`Remote encrypted file looks too small (${remote.size}B).`);
+        }
+
+        const createdAt = new Date().toISOString();
+        metadata.push({
+          id: fileId, title: title || file.name, category, tags, album, date,
+          originalName: file.name, size: file.size, mimeType: file.type,
+          iv, salt, createdAt, logs: [{ type: "upload", ts: createdAt }],
+        });
+        ok++;
+      } catch (err) {
+        console.error("Upload failed for", file.name, err);
+        fail++;
+      }
+    }
+
+    // sync metadata to Drive (required for persistence after refresh)
+    try {
+      await saveMetadata(); // fetch+media variant
+    } catch (e2) {
+      console.error(e2);
+      uploadStatus.textContent = "Saved locally, but failed to sync metadata to Drive. Try again.";
+      uploadStatus.className = "status err";
+      return;
+    }
+
+    uploadStatus.textContent = `Done: ${ok} uploaded, ${fail} failed.`;
+    uploadStatus.className = (fail > 0) ? "status err" : "status ok";
+
     fileEl.value = "";
     renderVaultList();
     renderDashboard();
-    addActivity("upload", title);
+    addActivity("upload", `${ok} file(s)`);
     renderActivity();
+
   } catch (err) {
     console.error(err);
     uploadStatus.textContent = "Upload failed.";
-    uploadStatus.classList.add("err");
+    uploadStatus.className = "status err";
   }
 });
 
@@ -611,6 +759,19 @@ function humanSize(bytes = 0) {
   return val.toFixed(1) + " " + units[iIdx];
 }
 
+function validateMetaForDecrypt(m) {
+  if (!m.iv || !m.salt) {
+    throw new Error(
+      "Missing iv/salt in metadata (old item or corrupted). Re-upload needed."
+    );
+  }
+  // iv (base64) -> 12 bytes ဖြစ်ရမယ်
+  const ivBytes = base64ToBytes(m.iv);
+  if (ivBytes.length !== 12) {
+    throw new Error(`Invalid IV length: ${ivBytes.length}.`);
+  }
+}
+
 // ===== DOWNLOAD & LOG =====
 async function handleDownload(m) {
   uploadStatus.textContent = "";
@@ -625,6 +786,7 @@ async function handleDownload(m) {
 
   try {
     uploadStatus.textContent = "Downloading encrypted file...";
+    validateMetaForDecrypt(m);
     const encBlob = await downloadFileBlob(m.id);
 
     uploadStatus.textContent = "Decrypting...";
@@ -655,8 +817,22 @@ async function handleDownload(m) {
     renderActivity();
   } catch (e) {
     console.error(e);
-    uploadStatus.textContent =
-      "Decrypt failed. Wrong password or corrupted file.";
+    const msg = String(e?.message || e);
+    if (msg.includes("Drive download failed")) {
+      uploadStatus.textContent =
+        "Can't fetch from Drive (signin/scope/tester/origin). " + msg;
+    } else if (msg.includes("Missing iv/salt")) {
+      uploadStatus.textContent =
+        "Old/corrupted entry (no IV/SALT). Please re-upload this file.";
+    } else if (msg.includes("Invalid IV length")) {
+      uploadStatus.textContent = "Metadata IV invalid. Re-upload this file.";
+    } else if (msg.includes("too small")) {
+      uploadStatus.textContent =
+        "Downloaded data isn't the encrypted file (or password wrong).";
+    } else {
+      uploadStatus.textContent =
+        "Decrypt failed. Wrong password or corrupted file.";
+    }
     uploadStatus.classList.add("err");
   }
 }
@@ -674,28 +850,28 @@ async function handlePreview(m) {
     uploadStatus.textContent = "Preparing preview...";
     uploadStatus.className = "status";
 
+    validateMetaForDecrypt(m);
     const encBlob = await downloadFileBlob(m.id);
-    const plainBlob = await decryptBlobWithPassword(
+    const plainBufBlob = await decryptBlobWithPassword(
       encBlob,
       password,
       m.iv,
       m.salt
     );
 
-    // Clear previous
-    previewBody.innerHTML = "";
-    previewTitle.textContent = m.title || m.originalName || "Preview";
+    // 🔽 typed blob (VERY IMPORTANT)
+    const typed = new Blob([plainBufBlob], {
+      type: m.mimeType || "application/octet-stream",
+    });
+    const url = URL.createObjectURL(typed);
 
-    const type = m.mimeType || "";
-    const url = URL.createObjectURL(plainBlob);
-
-    if (type.startsWith("image/")) {
+    if ((m.mimeType || "").startsWith("image/")) {
       const img = document.createElement("img");
       img.src = url;
       img.alt = m.originalName || "image";
       img.className = "preview-image";
       previewBody.appendChild(img);
-    } else if (type === "application/pdf") {
+    } else if ((m.mimeType || "") === "application/pdf") {
       const emb = document.createElement("embed");
       emb.src = url;
       emb.type = "application/pdf";
@@ -704,8 +880,7 @@ async function handlePreview(m) {
     } else {
       const p = document.createElement("p");
       p.className = "hint";
-      p.textContent =
-        "Decrypted file is ready. Use Download to open it in its native app.";
+      p.textContent = "This file type is best viewed after Download.";
       previewBody.appendChild(p);
     }
 
@@ -713,8 +888,22 @@ async function handlePreview(m) {
     uploadStatus.textContent = "";
   } catch (e) {
     console.error(e);
-    uploadStatus.textContent =
-      "Preview failed. Wrong password or file corrupted.";
+    const msg = String(e?.message || e);
+    if (msg.includes("Drive download failed")) {
+      uploadStatus.textContent =
+        "Can't fetch from Drive (signin/scope/tester/origin). " + msg;
+    } else if (msg.includes("Missing iv/salt")) {
+      uploadStatus.textContent =
+        "Old/corrupted entry (no IV/SALT). Please re-upload this file.";
+    } else if (msg.includes("Invalid IV length")) {
+      uploadStatus.textContent = "Metadata IV invalid. Re-upload this file.";
+    } else if (msg.includes("too small")) {
+      uploadStatus.textContent =
+        "Downloaded data isn't the encrypted file (or password wrong).";
+    } else {
+      uploadStatus.textContent =
+        "Decrypt failed. Wrong password or corrupted file.";
+    }
     uploadStatus.classList.add("err");
   }
 }
@@ -773,7 +962,10 @@ editForm.addEventListener("submit", async (e) => {
   found.album = editAlbum.value.trim() || null;
   const tagsRaw = editTags.value.trim();
   found.tags = tagsRaw
-    ? tagsRaw.split(",").map((t) => t.trim()).filter(Boolean)
+    ? tagsRaw
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean)
     : [];
   found.date = editDate.value || found.date || null;
 
@@ -793,42 +985,71 @@ editForm.addEventListener("submit", async (e) => {
   }
 });
 
-async function changeVaultPassword(oldPw, newPw) {
+async function changeVaultPassword(oldPw, newPw, onProgress) {
   if (!accessToken) throw new Error("Sign in first.");
   if (!oldPw || !newPw) throw new Error("Passwords required.");
+
   const total = metadata.length;
   let ok = 0, fail = 0;
 
-  for (const m of metadata) {
+  for (let i = 0; i < metadata.length; i++) {
+    const m = metadata[i];
     try {
+      validateMetaForDecrypt(m);
+
       // 1) download old encrypted blob
       const encBlob = await downloadFileBlob(m.id);
-      // 2) decrypt with OLD
+
+      // 2) decrypt with OLD password
       const plain = await decryptBlobWithPassword(encBlob, oldPw, m.iv, m.salt);
-      // 3) encrypt with NEW
+
+      // 3) encrypt with NEW password
       const { blob: newEnc, iv: newIv, salt: newSalt } =
-        await encryptFileWithPassword(new File([plain], m.originalName, { type: m.mimeType }), newPw);
+        await encryptFileWithPassword(
+          new File([plain], m.originalName, { type: m.mimeType || "application/octet-stream" }),
+          newPw
+        );
 
-      // 4) replace Drive file content
-      await gapi.client.request({
-        path: `/upload/drive/v3/files/${m.id}`,
-        method: "PATCH",
-        params: { uploadType: "media" },
-        headers: authHeaders(),
-        body: newEnc
-      });
+      // 4) replace Drive file content (media upload via fetch ✅)
+      const resp = await fetch(
+        `https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(m.id)}?uploadType=media`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: "Bearer " + accessToken,
+            "Content-Type": "application/octet-stream",
+          },
+          body: newEnc,
+        }
+      );
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => "");
+        throw new Error(`media PATCH failed ${resp.status}: ${text.slice(0,200)}`);
+      }
 
-      // 5) update metadata (iv/salt)
+      // (optional) sanity check remote size
+      const remote = await getRemoteFileMeta(m.id);
+      if (!remote.size || Number(remote.size) < 32) {
+        throw new Error(`remote too small after re-encrypt (${remote.size}B)`);
+      }
+
+      // 5) update metadata (iv/salt) only after successful upload
       m.iv = newIv;
       m.salt = newSalt;
+      (m.logs ??= []).push({ type: "rekey", ts: new Date().toISOString() });
+
       ok++;
     } catch (e) {
       console.error("re-encrypt failed for", m.title || m.originalName, e);
       fail++;
+    } finally {
+      if (typeof onProgress === "function") onProgress({ i: i + 1, total, ok, fail });
     }
   }
 
+  // persist metadata to Drive (saveMetadata already uses fetch+media)
   await saveMetadata();
+
   return { ok, fail, total };
 }
 
@@ -942,73 +1163,180 @@ function openCategoryModal(categoryKey, conf) {
     p.className = "hint";
     p.textContent = "No items in this category yet.";
     modalBody.appendChild(p);
-  } else {
-    items
-      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
-      .forEach((m) => {
-        const row = document.createElement("div");
-        row.className = "modal-item";
-
-        const left = document.createElement("div");
-        const t = document.createElement("div");
-        t.className = "vault-title";
-        t.textContent = m.title || m.originalName;
-        const meta = document.createElement("div");
-        meta.className = "vault-meta";
-        meta.textContent =
-          (m.date || m.createdAt?.slice(0, 10) || "") +
-          " • " +
-          humanSize(m.size);
-        if (m.album) {
-          const alb = document.createElement("span");
-          alb.className = "album-label";
-          alb.textContent = "Album: " + m.album;
-          meta.appendChild(alb);
-        }
-        left.appendChild(t);
-        left.appendChild(meta);
-
-        const tagsEl = document.createElement("div");
-        if (m.tags?.length) {
-          m.tags.forEach((tg) => {
-            const span = document.createElement("span");
-            span.className = "tag";
-            span.textContent = tg;
-            tagsEl.appendChild(span);
-          });
-        }
-
-        const actions = document.createElement("div");
-        actions.style.display = "flex";
-        actions.style.gap = "4px";
-
-        const btnPrev = document.createElement("button");
-        btnPrev.className = "btn small";
-        btnPrev.textContent = "Preview";
-        btnPrev.addEventListener("click", () => handlePreview(m));
-        actions.appendChild(btnPrev);
-
-        const btnDown = document.createElement("button");
-        btnDown.className = "btn small";
-        btnDown.textContent = "Download";
-        btnDown.addEventListener("click", () => handleDownload(m));
-        actions.appendChild(btnDown);
-
-        const btnEd = document.createElement("button");
-        btnEd.className = "btn small ghost";
-        btnEd.textContent = "Edit";
-        btnEd.addEventListener("click", () => openEditModal(m));
-        actions.appendChild(btnEd);
-
-        row.appendChild(left);
-        row.appendChild(tagsEl);
-        row.appendChild(actions);
-
-        modalBody.appendChild(row);
-      });
+    modal.classList.remove("hidden");
+    return;
   }
 
+  // ✅ Photos: add Gallery toggle
+  if (categoryKey === "photos") {
+    // toolbar
+    const bar = document.createElement("div");
+    bar.className = "gallery-toolbar";
+    const btnList = document.createElement("button");
+    btnList.className = "btn small ghost";
+    btnList.textContent = "List";
+    const btnGrid = document.createElement("button");
+    btnGrid.className = "btn small";
+    btnGrid.textContent = "Gallery";
+    bar.appendChild(btnList);
+    bar.appendChild(btnGrid);
+    modalBody.appendChild(bar);
+
+    const gridHost = document.createElement("div");
+    const listHost = document.createElement("div");
+    modalBody.appendChild(gridHost);
+    modalBody.appendChild(listHost);
+
+    // default show List
+    listHost.style.display = "block";
+    gridHost.style.display = "none";
+
+    // render list (existing list layout)
+    renderPhotoList(items, listHost);
+
+    // render grid (decrypt first N thumbnails)
+    let galleryInited = false;
+    btnGrid.addEventListener("click", async () => {
+      listHost.style.display = "none";
+      gridHost.style.display = "block";
+      if (!galleryInited) {
+        await renderPhotoGrid(items, gridHost);
+        galleryInited = true;
+      }
+      btnGrid.classList.add("primary");
+      btnList.classList.remove("primary");
+    });
+    btnList.addEventListener("click", () => {
+      gridHost.style.display = "none";
+      listHost.style.display = "block";
+      btnList.classList.add("primary");
+      btnGrid.classList.remove("primary");
+    });
+
+    modal.classList.remove("hidden");
+    return;
+  }
+
+  // 🔁 Non-photos: original list rows
+  items
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+    .forEach((m) => appendModalRow(m));
   modal.classList.remove("hidden");
+}
+
+// helper: render normal list row into modalBody (used by non-photos & list view)
+function appendModalRow(m) {
+  const row = document.createElement("div");
+  row.className = "modal-item";
+  const left = document.createElement("div");
+  const t = document.createElement("div");
+  t.className = "vault-title";
+  t.textContent = m.title || m.originalName;
+  const meta = document.createElement("div");
+  meta.className = "vault-meta";
+  meta.textContent =
+    (m.date || m.createdAt?.slice(0, 10) || "") + " • " + humanSize(m.size);
+  if (m.album) {
+    const alb = document.createElement("span");
+    alb.className = "album-label";
+    alb.textContent = "Album: " + m.album;
+    meta.appendChild(alb);
+  }
+  left.appendChild(t);
+  left.appendChild(meta);
+
+  const tagsEl = document.createElement("div");
+  if (m.tags?.length)
+    m.tags.forEach((tg) => {
+      const sp = document.createElement("span");
+      sp.className = "tag";
+      sp.textContent = tg;
+      tagsEl.appendChild(sp);
+    });
+
+  const actions = document.createElement("div");
+  actions.style.display = "flex";
+  actions.style.gap = "4px";
+  const btnPrev = document.createElement("button");
+  btnPrev.className = "btn small";
+  btnPrev.textContent = "Preview";
+  btnPrev.addEventListener("click", () => handlePreview(m));
+  const btnDown = document.createElement("button");
+  btnDown.className = "btn small";
+  btnDown.textContent = "Download";
+  btnDown.addEventListener("click", () => handleDownload(m));
+  const btnEd = document.createElement("button");
+  btnEd.className = "btn small ghost";
+  btnEd.textContent = "Edit";
+  btnEd.addEventListener("click", () => openEditModal(m));
+  actions.appendChild(btnPrev);
+  actions.appendChild(btnDown);
+  actions.appendChild(btnEd);
+
+  row.appendChild(left);
+  row.appendChild(tagsEl);
+  row.appendChild(actions);
+  modalBody.appendChild(row);
+}
+function renderPhotoList(items, host) {
+  host.innerHTML = "";
+  items
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+    .forEach((m) => host.appendChild(appendModalRowReturn(m)));
+}
+// same as appendModalRow but returns element to append somewhere else
+function appendModalRowReturn(m) {
+  const tmp = document.createElement("div");
+  appendModalRow(m);
+  const el = modalBody.lastChild;
+  modalBody.removeChild(el);
+  return el;
+}
+
+// gallery renderer (decrypt first N=12 thumbnails)
+async function renderPhotoGrid(items, host) {
+  host.innerHTML = "";
+  const pw = vaultPasswordInput.value.trim();
+  const grid = document.createElement("div");
+  grid.className = "photo-grid";
+  host.appendChild(grid);
+
+  // first 12 for speed; can add "Load more" later
+  const subset = items
+    .slice()
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+    .slice(0, 12);
+
+  for (const m of subset) {
+    const card = document.createElement("div");
+    card.className = "photo-card";
+    const img = document.createElement("img");
+    img.className = "photo-thumb";
+    img.alt = m.title || m.originalName;
+
+    try {
+      validateMetaForDecrypt(m);
+      const enc = await downloadFileBlob(m.id);
+      const plain = await decryptBlobWithPassword(enc, pw, m.iv, m.salt);
+      const url = URL.createObjectURL(plain);
+      img.src = url;
+
+      img.addEventListener("click", () => handlePreview(m)); // click to open full preview
+    } catch (e) {
+      console.error("thumb fail", m.originalName, e);
+      img.alt = "preview failed";
+    }
+
+    const cap = document.createElement("div");
+    cap.className = "photo-caption";
+    cap.textContent = m.album
+      ? `${m.album} • ${m.title || m.originalName}`
+      : m.title || m.originalName;
+
+    card.appendChild(img);
+    card.appendChild(cap);
+    grid.appendChild(card);
+  }
 }
 
 modalClose.addEventListener("click", () => {
