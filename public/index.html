@@ -26,6 +26,8 @@
               <option value="dark">Dark</option>
               <option value="light">Light</option>
               <option value="amoled">AMOLED</option>
+              <option value="sepia">Sepia</option>
+              <option value="ocean">Ocean</option>
             </select>
             <select id="font-select">
               <option value="sm">A-</option>
@@ -51,6 +53,7 @@
         <div id="dashboard-cards" class="dash-grid">
           <!-- JS will render category cards here -->
         </div>
+        <!-- <div id="vault-categories" class="vault-cat-grid"></div> -->
       </section>
 
       <!-- MAIN LAYOUT -->
@@ -463,10 +466,43 @@
             ></textarea>
           </div>
         </section>
+
+        <!-- SETTINGS TAB -->
+        <section id="tab-settings" class="tab-panel hidden">
+          <div class="card">
+            <button type="button" class="drawer-close" onclick="closeDrawer()">
+              ✕
+            </button>
+            <h2>Settings</h2>
+
+            <h3>Change Vault Password</h3>
+            <p class="hint">
+              Old password နဲ့ decrypt → New password နဲ့ re-encrypt → Drive
+              ထဲကို update ပြန်တင်သွားမယ်။
+            </p>
+
+            <div class="form-row">
+              <label>Old Password</label>
+              <input type="password" id="old-vault-pw" />
+            </div>
+
+            <div class="form-row">
+              <label>New Password</label>
+              <input type="password" id="new-vault-pw" />
+            </div>
+
+            <button class="btn primary full" id="btn-change-vault-password">
+              Change Password
+            </button>
+
+            <p id="settings-status" class="status"></p>
+          </div>
+        </section>
       </main>
       <footer class="footer-bar">
         <button class="footer-btn" data-tab="help">Help / Guide</button>
         <button class="footer-btn" data-tab="dev">Dev Panel</button>
+        <button class="footer-btn" data-tab="settings">Settings</button>
       </footer>
     </div>
 

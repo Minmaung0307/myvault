@@ -17,18 +17,181 @@
 }
 
 /* THEMES */
-:root[data-theme="light"] {
-  --bg: #f3f4f6;
-  --bg-elevated: #ffffff;
-  --bg-soft: #e5e7eb;
-  --text: #111827;
-  --muted: #6b7280;
-  --border-subtle: 1px solid rgba(148,163,253,0.35);
+/* ✅ Light theme – high contrast, easy to read */
+:root[data-theme="light"] body,
+:root[data-theme="light"] .app-shell {
+  background: #f9fafb;            /* slate-50 */
+  color: #0f172a;                 /* slate-900 */
 }
-:root[data-theme="amoled"] {
-  --bg: #000000;
-  --bg-elevated: #020817;
-  --bg-soft: #020817;
+
+:root[data-theme="light"] .app-header {
+  background: #e5e7eb;            /* slate-200 */
+  border-bottom: 1px solid #d1d5db;
+}
+
+:root[data-theme="light"] .card,
+:root[data-theme="light"] .vault-item {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+:root[data-theme="light"] .vault-title span {
+  color: #0f172a;
+}
+
+:root[data-theme="light"] .vault-meta {
+  color: #6b7280;                 /* slate-500 */
+}
+
+:root[data-theme="light"] .cat-pill {
+  background: #eff6ff;            /* blue-50 */
+  border-color: #3b82f6;          /* blue-500 */
+  color: #1d4ed8;                 /* blue-700 */
+}
+
+:root[data-theme="light"] .tag {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+:root[data-theme="light"] input,
+:root[data-theme="light"] select,
+:root[data-theme="light"] textarea {
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #d1d5db;
+}
+
+:root[data-theme="light"] .btn.primary {
+  background: #2563eb;            /* blue-600 */
+  color: #ffffff;
+}
+
+:root[data-theme="light"] .btn.primary:hover {
+  background: #1d4ed8;            /* blue-700 */
+}
+
+/* ✅ AMOLED – true black background, neon cards */
+:root[data-theme="amoled"] body,
+:root[data-theme="amoled"] .app-shell {
+  background: #000000;
+  color: #e5e7eb;
+}
+
+:root[data-theme="amoled"] .app-header {
+  background: #020617;
+  border-bottom: 1px solid #0f172a;
+}
+
+:root[data-theme="amoled"] .card,
+:root[data-theme="amoled"] .vault-item {
+  background: #020617;
+  border: 1px solid #0f172a;
+  box-shadow: 0 0 0 1px rgba(15,23,42,0.6);
+}
+
+:root[data-theme="amoled"] .cat-pill {
+  background: rgba(59,130,246,0.15);
+  border-color: #3b82f6;
+  color: #bfdbfe;
+}
+
+:root[data-theme="amoled"] .tag {
+  background: rgba(148,163,184,0.2);
+  color: #e5e7eb;
+}
+
+:root[data-theme="amoled"] .btn.primary {
+  background: #22c55e;
+  color: #020617;
+}
+:root[data-theme="amoled"] .btn.primary:hover {
+  background: #16a34a;
+}
+
+/* ✅ Sepia – document reading friendly */
+:root[data-theme="sepia"] body,
+:root[data-theme="sepia"] .app-shell {
+  background: #fdf6e3;           /* solarized-light style */
+  color: #3f2f1b;
+}
+
+:root[data-theme="sepia"] .app-header {
+  background: #f5e9d2;
+  border-bottom: 1px solid #e0d3b8;
+}
+
+:root[data-theme="sepia"] .card,
+:root[data-theme="sepia"] .vault-item {
+  background: #fffaf0;
+  border: 1px solid #e0d3b8;
+  box-shadow: 0 1px 2px rgba(63,47,27,0.12);
+}
+
+:root[data-theme="sepia"] .vault-meta {
+  color: #8b7355;
+}
+
+:root[data-theme="sepia"] .cat-pill {
+  background: #f5e3c2;
+  border-color: #d97706;
+  color: #92400e;
+}
+
+:root[data-theme="sepia"] .tag {
+  background: #e0d3b8;
+  color: #4b3b24;
+}
+
+:root[data-theme="sepia"] .btn.primary {
+  background: #b45309;
+  color: #fff7ed;
+}
+:root[data-theme="sepia"] .btn.primary:hover {
+  background: #92400e;
+}
+
+/* ✅ Ocean – cool blue dashboard */
+:root[data-theme="ocean"] body,
+:root[data-theme="ocean"] .app-shell {
+  background: radial-gradient(circle at top, #0ea5e9 0, #020617 55%);
+  color: #e0f2fe;
+}
+
+:root[data-theme="ocean"] .app-header {
+  background: rgba(15,23,42,0.9);
+  border-bottom: 1px solid rgba(56,189,248,0.4);
+}
+
+:root[data-theme="ocean"] .card,
+:root[data-theme="ocean"] .vault-item {
+  background: rgba(15,23,42,0.92);
+  border: 1px solid rgba(56,189,248,0.4);
+  box-shadow: 0 12px 30px rgba(15,23,42,0.7);
+}
+
+:root[data-theme="ocean"] .vault-meta {
+  color: #7dd3fc;
+}
+
+:root[data-theme="ocean"] .cat-pill {
+  background: rgba(56,189,248,0.15);
+  border-color: #38bdf8;
+  color: #e0f2fe;
+}
+
+:root[data-theme="ocean"] .tag {
+  background: rgba(37,99,235,0.7);
+  color: #eff6ff;
+}
+
+:root[data-theme="ocean"] .btn.primary {
+  background: #22c55e;
+  color: #022c22;
+}
+:root[data-theme="ocean"] .btn.primary:hover {
+  background: #16a34a;
 }
 
 /* FONT SIZE */
@@ -260,8 +423,8 @@ select:focus {
 
 .dash-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 14px;
 }
 
 .dash-card {
@@ -274,6 +437,7 @@ select:focus {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  text-align: center;
   cursor: pointer;
   transition: all 0.14s ease;
 }
@@ -292,10 +456,26 @@ select:focus {
 .dash-title {
   font-size: 12px;
   font-weight: 500;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.dash-icon {
+  font-size: 40px;   /* 🔥 icon ကြီးကြီး */
+  line-height: 1;
 }
 
 .dash-count {
   font-size: 10px;
+}
+
+.dash-name {
+  font-weight: 600;
+  font-size: 14px;
+  opacity: 0.95;
 }
 
 /* VAULT LIST */
@@ -671,3 +851,49 @@ footer {
   background: rgba(30, 64, 175, 0.95);
   transform: translateY(-1px);
 }
+
+/* ======================
+   BIG VAULT CATEGORY CARDS START
+   ====================== */
+.vault-cat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.vault-cat-card {
+  background: var(--card-bg, #ffffff10);
+  border: 1px solid var(--border-color, #ffffff20);
+  border-radius: 14px;
+  padding: 18px 12px;
+  text-align: center;
+  cursor: pointer;
+  transition: 0.15s;
+}
+
+.vault-cat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 18px var(--shadow-color, rgba(0,0,0,0.25));
+}
+
+.vault-cat-icon {
+  font-size: 40px;
+  line-height: 1;
+  margin-bottom: 10px;
+}
+
+.vault-cat-title {
+  font-size: 15px;
+  font-weight: 600;
+  opacity: 0.95;
+  margin-bottom: 4px;
+}
+
+.vault-cat-count {
+  font-size: 13px;
+  opacity: 0.6;
+}
+/* ======================
+   BIG VAULT CATEGORY CARDS END
+   ====================== */

@@ -734,12 +734,89 @@ function renderVaultList() {
       btnEdit.addEventListener("click", () => openEditModal(m));
       actions.appendChild(btnEdit);
 
+      // 🔴 NEW: Delete button (encrypted copy only)
+      const btnDelete = document.createElement("button");
+      btnDelete.className = "btn small danger";
+      btnDelete.textContent = "Delete";
+      btnDelete.addEventListener("click", () => handleDelete(m));
+      actions.appendChild(btnDelete);
+      // 🔴 NEW END
+
       item.appendChild(left);
       item.appendChild(tagsEl);
       item.appendChild(actions);
 
       vaultListEl.appendChild(item);
     });
+}
+
+// ===== DELETE ENCRYPTED FILE FROM MYVAULT =====
+async function handleDelete(entry) {
+  if (!accessToken) {
+    alert("Please sign in with Google first.");
+    return;
+  }
+
+  const id = entry.id;
+  if (!id) {
+    alert("Missing file id.");
+    return;
+  }
+
+  const idx = metadata.findIndex((m) => m.id === id);
+  if (idx === -1) {
+    alert("Item not found in metadata.");
+    return;
+  }
+
+  const m = metadata[idx];
+
+  const confirmMsg =
+    `Delete this encrypted file from MyVault?\n\n` +
+    `Title: ${m.title || m.originalName || ""}\n` +
+    `Category: ${m.category || ""}\n\n` +
+    `Only the ENCRYPTED COPY stored in your MyVault folder on Google Drive\n` +
+    `will be deleted. Your original file on your device will NOT be touched.`;
+
+  if (!window.confirm(confirmMsg)) {
+    return;
+  }
+
+  try {
+    // 1) Google Drive ထဲက encrypted file ကို ဖျက်မယ်
+    const resp = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}`,
+      {
+        method: "DELETE",
+        headers: authHeaders(), // Authorization: Bearer accessToken
+      }
+    );
+
+    // file မတွေ့ရင် (404) ကိုလည်း OK လို ခတ်ပေးလိုက်တယ်
+    if (!resp.ok && resp.status !== 404) {
+      const text = await resp.text().catch(() => "");
+      throw new Error(`Drive delete failed ${resp.status}: ${text.slice(0, 200)}`);
+    }
+
+    // 2) metadata ထဲက entry ကို ဖျက်မယ်
+    metadata.splice(idx, 1);
+
+    // 3) vault_meta.json + localStorage cache ကို update လုပ်မယ်
+    await saveMetadata();
+
+    // 4) UI refresh
+    renderVaultList();
+    if (typeof renderDashboard === "function") renderDashboard();
+    if (typeof addActivity === "function") {
+      addActivity("delete", m.title || m.originalName || id);
+    }
+    if (typeof renderActivity === "function") renderActivity();
+
+    alert("Encrypted file deleted from MyVault.");
+  } catch (e) {
+    console.error("Delete failed", e);
+    alert("Delete failed: " + (e.message || e));
+  }
 }
 
 function humanSize(bytes = 0) {
@@ -1150,6 +1227,34 @@ function renderDashboard() {
     const card = makeDashCard(conf, counts[key] || 0, key);
     dashContainer.appendChild(card);
   });
+
+  // const wrap = document.getElementById("vault-categories");
+  // if (!wrap) return;
+
+  // wrap.innerHTML = "";
+
+  // const cats = Object.keys(CATEGORY_CONFIG);
+
+  // cats.forEach(cat => {
+  //   const conf = CATEGORY_CONFIG[cat];
+  //   const count = metadata.filter(m => m.category === cat).length;
+
+  //   const card = document.createElement("div");
+  //   card.className = "vault-cat-card";
+  //   card.onclick = () => {
+  //     filterCategory.value = cat;
+  //     switchTab("vault");
+  //     renderVaultList();
+  //   };
+
+  //   card.innerHTML = `
+  //     <div class="vault-cat-icon">${conf.icon}</div>
+  //     <div class="vault-cat-title">${conf.label}</div>
+  //     <div class="vault-cat-count">${count} item${count !== 1 ? "s" : ""}</div>
+  //   `;
+
+  //   wrap.appendChild(card);
+  // });
 }
 
 function makeDashCard(conf, count, categoryKey) {
@@ -1159,7 +1264,19 @@ function makeDashCard(conf, count, categoryKey) {
 
   const title = document.createElement("div");
   title.className = "dash-title";
-  title.textContent = `${conf.icon} ${conf.label}`;
+
+  // 🔹 icon (big)
+  const iconDiv = document.createElement("div");
+  iconDiv.className = "dash-icon";
+  iconDiv.textContent = conf.icon;
+
+  // 🔹 label (under icon)
+  const nameDiv = document.createElement("div");
+  nameDiv.className = "dash-name";
+  nameDiv.textContent = conf.label;
+
+  title.appendChild(iconDiv);
+  title.appendChild(nameDiv);
 
   const label = document.createElement("div");
   label.className = "dash-label";
@@ -1405,5 +1522,39 @@ modalClose.addEventListener("click", () => {
 modal.addEventListener("click", (e) => {
   if (e.target.classList.contains("modal-backdrop")) {
     modal.classList.add("hidden");
+  }
+});
+
+// SETTINGS – Change Vault Password
+const btnChangePw = document.getElementById("btn-change-vault-password");
+const oldPwInput = document.getElementById("old-vault-pw");
+const newPwInput = document.getElementById("new-vault-pw");
+const settingsStatus = document.getElementById("settings-status");
+
+btnChangePw?.addEventListener("click", async () => {
+  const oldPw = oldPwInput.value.trim();
+  const newPw = newPwInput.value.trim();
+
+  settingsStatus.textContent = "";
+  settingsStatus.className = "status";
+
+  if (!oldPw || !newPw) {
+    settingsStatus.textContent = "Enter both old & new passwords.";
+    settingsStatus.classList.add("err");
+    return;
+  }
+
+  try {
+    settingsStatus.textContent = "Re-encrypting all files...";
+    const result = await changeVaultPassword(oldPw, newPw);
+
+    settingsStatus.textContent =
+      `Done: ${result.ok} success / ${result.fail} failed (Total: ${result.total})`;
+    settingsStatus.classList.add("ok");
+
+  } catch (err) {
+    console.error(err);
+    settingsStatus.textContent = err.message || err;
+    settingsStatus.classList.add("err");
   }
 });
