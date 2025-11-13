@@ -8,25 +8,14 @@ const META_FILE_NAME = "vault_meta.json";
 const VAULT_FOLDER_NAME = "MyVault";
 
 const CATEGORY_CONFIG = {
-  ids:        { label: "IDs & Identity",          icon: "🪪", color: "#facc15" },
-  immigration:{ label: "Immigration & Status",    icon: "🛂", color: "#38bdf8" },
-  legal:      { label: "Legal Documents",         icon: "⚖️", color: "#f97316" },
-  tax:        { label: "Tax Returns",             icon: "📄", color: "#22c55e" },
-  payment:    { label: "Finance & Payments",      icon: "💳", color: "#6366f1" },
-  housing:    { label: "Housing / Lease",         icon: "🏠", color: "#a855f7" },
-  vehicles:   { label: "Vehicles & Driving",      icon: "🚗", color: "#0ea5e9" },
-  health:     { label: "Health & Medical",        icon: "🩺", color: "#10b981" },
-  work:       { label: "Work & Employment",       icon: "💼", color: "#eab308" },
-  education:  { label: "Education & Certificates",icon: "🎓", color: "#ec4899" },
-  business:   { label: "Business & LLC",          icon: "📑", color: "#22c55e" },
-  membership: { label: "Memberships & Cards",     icon: "🎫", color: "#f97316" },
-  receipts:   { label: "Receipts & Warranty",     icon: "🧾", color: "#f59e0b" },
-  photos:     { label: "Photos & Albums",         icon: "📷", color: "#ec4899" },
-
-  // ဟောင်း data-compatible key: applicationa
-  applicationa: { label: "Applications & Forms",  icon: "📁", color: "#3b82f6" },
-
-  other:      { label: "Other",                   icon: "📁", color: "#9ca3af" },
+  tax: { label: "Tax Returns", icon: "📄", color: "#38bdf8" },
+  ids: { label: "IDs & Passports", icon: "🪪", color: "#facc15" },
+  business: { label: "Business", icon: "📑", color: "#22c55e" },
+  housing: { label: "Housing", icon: "🏠", color: "#a855f7" },
+  membership: { label: "Memberships", icon: "🎫", color: "#f97316" },
+  payment: { label: "Payments", icon: "💳", color: "#6366f1" },
+  photos: { label: "Photos", icon: "📷", color: "#ec4899" },
+  other: { label: "Other", icon: "📁", color: "#9ca3af" },
 };
 
 // ===== STATE =====
@@ -53,6 +42,7 @@ const uploadStatus = document.getElementById("upload-status");
 const vaultListEl = document.getElementById("vault-list");
 const searchInput = document.getElementById("search-input");
 const filterCategory = document.getElementById("filter-category");
+const categorySel = document.getElementById("file-category");
 const albumRow = document.getElementById("album-row");
 const albumInput = document.getElementById("file-album");
 const activityList = document.getElementById("activity-list");
@@ -62,10 +52,15 @@ const modal = document.getElementById("category-modal");
 const modalTitle = document.getElementById("modal-title");
 const modalBody = document.getElementById("modal-body");
 const modalClose = document.getElementById("modal-close");
-const previewModal = document.getElementById("preview-modal");
-const previewTitle = document.getElementById("preview-title");
-const previewBody = document.getElementById("preview-body");
-const previewClose = document.getElementById("preview-close");
+
+const previewModal  = document.getElementById("preview-modal");
+const previewBody   = document.getElementById("preview-body");
+const previewTitle  = document.getElementById("preview-title");
+const previewClose  = document.getElementById("preview-close");
+const btnExpand     = document.getElementById("preview-expand");
+const btnZoomIn     = document.getElementById("pdf-zoom-in");
+const btnZoomOut    = document.getElementById("pdf-zoom-out");
+const btnOpenTab    = document.getElementById("pdf-open-tab");
 
 const editModal = document.getElementById("edit-modal");
 const editForm = document.getElementById("edit-form");
@@ -82,37 +77,43 @@ const editStatus = document.getElementById("edit-status");
 const themeSelect = document.getElementById("theme-select");
 const fontSelect = document.getElementById("font-select");
 
-function getCategoryConf(key) {
-  return CATEGORY_CONFIG[key] || CATEGORY_CONFIG.other;
-}
-
-// ----- Simple tab switching (Dashboard / Upload / Help / Dev ...) -----
-const tabButtons = document.querySelectorAll(".tab-btn[data-tab]");
-const tabPanels  = document.querySelectorAll(".tab-panel");
-
-function switchTab(name) {
-  tabPanels.forEach((panel) => {
-    const isActive = panel.id === `tab-${name}`;
-    panel.classList.toggle("hidden", !isActive);
-  });
-
-  tabButtons.forEach((btn) => {
-    const isActive = btn.dataset.tab === name;
-    btn.classList.toggle("active", isActive);
-  });
-}
-
-// Connect click events
-tabButtons.forEach((btn) => {
-  btn.addEventListener("click", () => {
-    const name = btn.dataset.tab;
-    switchTab(name);
-  });
+categorySel.addEventListener("change", () => {
+  const k = categorySel.value;
+  albumRow.style.display = (getCategoryConf(k).key === "photos") ? "" : "none";
 });
+// initial call
+albumRow.style.display = (getCategoryConf(categorySel.value).key === "photos") ? "" : "none";
 
-// Default tab (dashboard ဆိုရင် dashboard / upload ဆိုရင် upload …)
-// မင်းစိတ်ကြိုက်မှန်အောင် အောက်က name ကိုပြောင်းသုံး
-switchTab("dashboard");
+// Single source of truth for categories
+const CATEGORY_CONF = {
+  tax:       { key:"tax",       label:"Tax Returns",   icon:"🧾", color:"#0ea5e9" },
+  ids:       { key:"ids",       label:"IDs & Passports", icon:"🪪", color:"#22c55e" },
+  business:  { key:"business",  label:"Business",      icon:"📃", color:"#eab308" },
+  housing:   { key:"housing",   label:"Housing",       icon:"🏠", color:"#ef4444" },
+  membership:{ key:"membership",label:"Memberships",   icon:"💳", color:"#a855f7" },
+  payment:   { key:"payment",   label:"Payments",      icon:"💵", color:"#14b8a6" },
+  photos:    { key:"photos",    label:"Photos & Albums", icon:"🖼️", color:"#f97316" },
+  other:     { key:"other",     label:"Other",         icon:"📦", color:"#94a3b8" },
+};
+
+// helper
+function getCategoryConf(key) {
+  return CATEGORY_CONF[key] || CATEGORY_CONF["other"];
+}
+
+function renderCategoryOptions() {
+  const sel = document.getElementById("file-category");
+  if (!sel) return;
+  sel.innerHTML = "";
+  Object.values(CATEGORY_CONF).forEach(c => {
+    const opt = document.createElement("option");
+    opt.value = c.key;
+    opt.textContent = c.label;
+    sel.appendChild(opt);
+  });
+  sel.value = "other";
+}
+document.addEventListener("DOMContentLoaded", renderCategoryOptions);
 
 // ===== INIT THEME / FONT =====
 (function initPreferences() {
@@ -133,6 +134,42 @@ fontSelect.addEventListener("change", () => {
   const v = fontSelect.value;
   root.dataset.font = v;
   localStorage.setItem("myvault_font", v);
+});
+
+// expand / collapse (XL modal)
+btnExpand?.addEventListener("click", () => {
+  const box = previewModal.querySelector(".modal-content");
+  box.classList.toggle("modal-xl");
+});
+
+// zoom for PDF: height +/- 10vh (simple & effective)
+btnZoomIn?.addEventListener("click", () => {
+  const pdf = previewBody.querySelector(".preview-pdf");
+  if (!pdf) return;
+  const cur = parseInt(pdf.style.height || getComputedStyle(pdf).height, 10);
+  const vh  = Math.min(96, Math.round((cur / window.innerHeight) * 100) + 10);
+  pdf.style.height = vh + "vh";
+});
+btnZoomOut?.addEventListener("click", () => {
+  const pdf = previewBody.querySelector(".preview-pdf");
+  if (!pdf) return;
+  const cur = parseInt(pdf.style.height || getComputedStyle(pdf).height, 10);
+  const vh  = Math.max(40, Math.round((cur / window.innerHeight) * 100) - 10);
+  pdf.style.height = vh + "vh";
+});
+
+// open in new tab (use the same blob URL if present)
+btnOpenTab?.addEventListener("click", () => {
+  const emb = previewBody.querySelector(".preview-pdf");
+  const img = previewBody.querySelector(".preview-image");
+  const url = emb?.src || img?.src;
+  if (url) window.open(url, "_blank", "noopener");
+});
+
+// (nice to have) double-click to toggle XL
+previewBody.addEventListener("dblclick", () => {
+  const box = previewModal.querySelector(".modal-content");
+  box.classList.toggle("modal-xl");
 });
 
 // ===== GOOGLE API LOAD CALLBACKS =====
@@ -172,16 +209,23 @@ async function initGapiClient() {
 function maybeEnableSignin() {
   if (gapiInited && gisInited) {
     btnSignin.disabled = false;
-
-    // Try silent sign-in if the user has already granted access before.
-    if (tokenClient) {
-      try {
-        tokenClient.requestAccessToken({ prompt: "" });
-      } catch (e) {
-        console.warn("Silent sign-in failed (this is ok on first use)", e);
-      }
-    }
+    // 🔇 Try silent sign-in (no prompt). If user has granted before, we get a token.
+    trySilentSignIn();
   }
+}
+
+function trySilentSignIn() {
+  if (!tokenClient) return;
+  const prevCb = tokenClient.callback;
+  tokenClient.callback = (resp) => {
+    if (!resp.error) {
+      accessToken = resp.access_token;
+      onSignedIn();
+    }
+    tokenClient.callback = prevCb; // restore
+  };
+  // empty prompt => no account chooser if already consented
+  tokenClient.requestAccessToken({ prompt: "" });
 }
 
 // ===== AUTH =====
@@ -214,6 +258,15 @@ function toggleAuthButtons(loggedIn) {
     btnSignout.classList.add("hidden");
   }
 }
+
+(function primeCache() {
+  const cache = localStorage.getItem("myvault_meta_cache");
+  if (cache) {
+    try { metadata = JSON.parse(cache) || []; } catch {}
+    renderVaultList();
+    renderDashboard();
+  }
+})();
 
 async function onSignedIn() {
   toggleAuthButtons(true);
@@ -298,41 +351,32 @@ async function ensureMetadataFile() {
 }
 
 async function loadMetadata() {
-  if (!metadataFileId) {
-    metadata = [];
-    return;
-  }
+  if (!metadataFileId) { metadata = []; return; }
 
   try {
     const resp = await fetch(
       `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(metadataFileId)}?alt=media`,
       { headers: authHeaders() }
     );
-
     if (!resp.ok) {
-      const text = await resp.text().catch(() => "");
-      throw new Error(`loadMetadata failed ${resp.status}: ${text.slice(0, 200)}`);
+      const text = await resp.text().catch(()=> "");
+      throw new Error(`loadMetadata failed ${resp.status}: ${text.slice(0,200)}`);
     }
-
-    const txt = await resp.text();
-    const arr = JSON.parse(txt);
-
+    const text = await resp.text();
+    const arr = JSON.parse(text); // <-- parse JSON body
     if (Array.isArray(arr)) {
       metadata = arr;
-      // cache locally so refresh still works even if Drive hiccups
+      // cache locally (see #2)
       localStorage.setItem("myvault_meta_cache", JSON.stringify(arr));
     } else {
-      console.warn("metadata JSON is not an array; keeping existing metadata in memory");
+      console.warn("metadata is not array; keeping previous");
     }
   } catch (e) {
-    console.error("loadMetadata error; falling back to local cache if any", e);
+    console.error("loadMetadata error; using local cache if any", e);
+    // fallback to cache
     const cache = localStorage.getItem("myvault_meta_cache");
     if (cache) {
-      try {
-        metadata = JSON.parse(cache) || [];
-      } catch (err) {
-        if (!Array.isArray(metadata)) metadata = [];
-      }
+      try { metadata = JSON.parse(cache) || []; } catch {}
     } else {
       if (!Array.isArray(metadata)) metadata = [];
     }
@@ -341,50 +385,23 @@ async function loadMetadata() {
 
 async function saveMetadata() {
   if (!metadataFileId) return;
-
   const json = JSON.stringify(metadata, null, 2);
 
   const resp = await fetch(
     `https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(metadataFileId)}?uploadType=media`,
     {
       method: "PATCH",
-      headers: {
-        Authorization: "Bearer " + accessToken,
-        "Content-Type": "application/json; charset=UTF-8",
-      },
+      headers: { Authorization: "Bearer " + accessToken, "Content-Type": "application/json; charset=UTF-8" },
       body: json,
     }
   );
-
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
-    throw new Error(`saveMetadata failed ${resp.status}: ${text.slice(0, 200)}`);
+    throw new Error(`saveMetadata failed ${resp.status}: ${text.slice(0,200)}`);
   }
-
-  // cache locally too
-  try {
-    localStorage.setItem("myvault_meta_cache", JSON.stringify(metadata));
-  } catch (e) {
-    console.warn("Failed to cache metadata locally", e);
-  }
+  // ✅ update local cache after successful sync
+  localStorage.setItem("myvault_meta_cache", JSON.stringify(metadata));
 }
-
-// Prime metadata & UI from local cache (so refresh doesn't look empty)
-(function primeMetadataFromCache() {
-  try {
-    const cache = localStorage.getItem("myvault_meta_cache");
-    if (!cache) return;
-    const arr = JSON.parse(cache);
-    if (Array.isArray(arr)) {
-      metadata = arr;
-      renderVaultList();
-      renderActivity();
-      renderDashboard();
-    }
-  } catch (e) {
-    console.warn("Failed to restore metadata cache", e);
-  }
-})();
 
 function buildMultipartBody(meta, data, dataType) {
   const boundary = "-------vaultboundarymeta";
@@ -399,8 +416,9 @@ function buildMultipartBody(meta, data, dataType) {
   });
 }
 
+// 1) create metadata-only file, 2) upload content via media PATCH (fetch)
 async function uploadEncryptedFileToVault(encryptedBlob, originalName) {
-  // 1) create metadata-only file
+  // (1) create empty file (metadata only)
   const createRes = await gapi.client.drive.files.create({
     resource: {
       name: originalName + ".enc",
@@ -411,9 +429,11 @@ async function uploadEncryptedFileToVault(encryptedBlob, originalName) {
   });
   const fileId = createRes.result.id;
 
-  // 2) upload binary content via media upload (fetch)
+  // (2) upload content as media using fetch (sets Content-Type explicitly)
   const resp = await fetch(
-    `https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(fileId)}?uploadType=media`,
+    `https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(
+      fileId
+    )}?uploadType=media`,
     {
       method: "PATCH",
       headers: {
@@ -423,14 +443,17 @@ async function uploadEncryptedFileToVault(encryptedBlob, originalName) {
       body: encryptedBlob,
     }
   );
+
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
-    throw new Error(`Media upload failed ${resp.status}: ${text.slice(0, 200)}`);
+    throw new Error(
+      `Media upload failed ${resp.status}: ${text?.slice(0, 200)}`
+    );
   }
+
   return fileId;
 }
 
-async function downloadFileBlob(fileId) {
 async function getRemoteFileMeta(fileId) {
   const res = await gapi.client.drive.files.get({
     fileId,
@@ -439,6 +462,7 @@ async function getRemoteFileMeta(fileId) {
   return res.result;
 }
 
+async function downloadFileBlob(fileId) {
   const url = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
     fileId
   )}?alt=media`;
@@ -534,6 +558,24 @@ function base64ToBytes(b64) {
 
 // ===== UPLOAD =====
 
+// after DOM refs near file-date input:
+const fileDate = document.getElementById("file-date");
+document.getElementById("btn-date-picker").addEventListener("click", () => {
+  // Chrome/Edge/Safari have showPicker; others fallback to focus
+  if (typeof fileDate.showPicker === "function") fileDate.showPicker();
+  else fileDate.focus();
+});
+document.getElementById("btn-date-today").addEventListener("click", () => {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  fileDate.value = `${yyyy}-${mm}-${dd}`;
+});
+document.getElementById("btn-date-clear").addEventListener("click", () => {
+  fileDate.value = "";
+});
+
 // show album for photos
 document.getElementById("file-category").addEventListener("change", (e) => {
   if (e.target.value === "photos") {
@@ -549,76 +591,78 @@ uploadForm.addEventListener("submit", async (e) => {
   uploadStatus.textContent = "";
   uploadStatus.className = "status";
 
-  if (!accessToken) {
-    uploadStatus.textContent = "Please sign in with Google first.";
-    uploadStatus.classList.add("err");
-    return;
-  }
-
-  const password = vaultPasswordInput.value.trim();
-  if (!password) {
-    uploadStatus.textContent = "Enter your vault password.";
-    uploadStatus.classList.add("err");
-    return;
-  }
-
-  const fileEl = document.getElementById("file-input");
-  const file = fileEl.files[0];
-  if (!file) {
-    uploadStatus.textContent = "Select a file.";
-    uploadStatus.classList.add("err");
-    return;
-  }
-
-  const title = document.getElementById("file-title").value.trim() || file.name;
-  const category = document.getElementById("file-category").value || "other";
-  const tagsRaw = document.getElementById("file-tags").value.trim();
-  const date = document.getElementById("file-date").value || null;
-  const album = albumInput.value.trim() || null;
-  const tags = tagsRaw
-    ? tagsRaw
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean)
-    : [];
-
   try {
-    uploadStatus.textContent = "Encrypting file...";
-    const { blob, iv, salt } = await encryptFileWithPassword(file, password);
+    if (!accessToken) { uploadStatus.textContent = "Please sign in with Google first."; uploadStatus.className = "status err"; return; }
 
-    uploadStatus.textContent = "Uploading to Google Drive...";
-    const fileId = await uploadEncryptedFileToVault(blob, file.name);
+    const password = vaultPasswordInput.value.trim();
+    if (!password) { uploadStatus.textContent = "Enter your vault password."; uploadStatus.className = "status err"; return; }
 
-    const createdAt = new Date().toISOString();
-    const entry = {
-      id: fileId,
-      title,
-      category,
-      tags,
-      album,
-      date,
-      originalName: file.name,
-      size: file.size,
-      mimeType: file.type,
-      iv,
-      salt,
-      createdAt,
-      logs: [{ type: "upload", ts: createdAt }],
-    };
-    metadata.push(entry);
-    await saveMetadata();
+    const fileEl = document.getElementById("file-input");
+    const fileDateEl = document.getElementById("file-date");
+    const albumEl = document.getElementById("file-album");
 
-    uploadStatus.textContent = "Uploaded & saved securely.";
-    uploadStatus.classList.add("ok");
+    const files = Array.from(fileEl.files || []);
+    if (!files.length) { uploadStatus.textContent = "Select at least one file."; uploadStatus.className = "status err"; return; }
+
+    const title = document.getElementById("file-title").value.trim();
+    const category = document.getElementById("file-category").value || "other";
+    category = getCategoryConf(category).key;
+    const tagsRaw = document.getElementById("file-tags").value.trim();
+    const date = fileDateEl?.value || null;
+    const album = albumEl?.value?.trim() || null;
+    const tags = tagsRaw ? tagsRaw.split(",").map(t=>t.trim()).filter(Boolean) : [];
+
+    let ok = 0, fail = 0;
+
+    for (const file of files) {
+      try {
+        uploadStatus.textContent = `Encrypting: ${file.name}...`;
+        const { blob, iv, salt } = await encryptFileWithPassword(file, password);
+
+        uploadStatus.textContent = `Uploading: ${file.name}...`;
+        const fileId = await uploadEncryptedFileToVault(blob, file.name);
+
+        const remote = await getRemoteFileMeta(fileId);
+        if (!remote.size || Number(remote.size) < 32) {
+          throw new Error(`Remote encrypted file looks too small (${remote.size}B).`);
+        }
+
+        const createdAt = new Date().toISOString();
+        metadata.push({
+          id: fileId, title: title || file.name, category, tags, album, date,
+          originalName: file.name, size: file.size, mimeType: file.type,
+          iv, salt, createdAt, logs: [{ type: "upload", ts: createdAt }],
+        });
+        ok++;
+      } catch (err) {
+        console.error("Upload failed for", file.name, err);
+        fail++;
+      }
+    }
+
+    // sync metadata to Drive (required for persistence after refresh)
+    try {
+      await saveMetadata(); // fetch+media variant
+    } catch (e2) {
+      console.error(e2);
+      uploadStatus.textContent = "Saved locally, but failed to sync metadata to Drive. Try again.";
+      uploadStatus.className = "status err";
+      return;
+    }
+
+    uploadStatus.textContent = `Done: ${ok} uploaded, ${fail} failed.`;
+    uploadStatus.className = (fail > 0) ? "status err" : "status ok";
+
     fileEl.value = "";
     renderVaultList();
     renderDashboard();
-    addActivity("upload", title);
+    addActivity("upload", `${ok} file(s)`);
     renderActivity();
+
   } catch (err) {
     console.error(err);
     uploadStatus.textContent = "Upload failed.";
-    uploadStatus.classList.add("err");
+    uploadStatus.className = "status err";
   }
 });
 
@@ -847,68 +891,36 @@ async function handlePreview(m) {
     uploadStatus.className = "status";
 
     validateMetaForDecrypt(m);
-
-    // 1) encrypted blob ကို Drive ကနေ ယူ
     const encBlob = await downloadFileBlob(m.id);
-
-    // 2) decrypt with password  → plain blob
-    const plainBlob = await decryptBlobWithPassword(
+    const plainBufBlob = await decryptBlobWithPassword(
       encBlob,
       password,
       m.iv,
       m.salt
     );
 
-    // 3) မည်သည့် mime type နဲ့ ပြမလဲ ဆုံးဖြတ်
-    let mime = m.mimeType || "";
-    const name = (m.originalName || "").toLowerCase();
+    // 🔽 typed blob (VERY IMPORTANT)
+    const typed = new Blob([plainBufBlob], {
+      type: m.mimeType || "application/octet-stream",
+    });
+    const url = URL.createObjectURL(typed);
 
-    if (!mime || mime === "application/octet-stream") {
-      if (name.endsWith(".pdf")) {
-        mime = "application/pdf";
-      } else if (
-        name.endsWith(".png") ||
-        name.endsWith(".jpg") ||
-        name.endsWith(".jpeg") ||
-        name.endsWith(".gif") ||
-        name.endsWith(".webp")
-      ) {
-        // image သွားမယ်
-        if (name.endsWith(".png")) mime = "image/png";
-        else if (name.endsWith(".gif")) mime = "image/gif";
-        else if (name.endsWith(".webp")) mime = "image/webp";
-        else mime = "image/jpeg";
-      } else {
-        mime = "application/octet-stream";
-      }
-    }
-
-    // 4) same bytes ကို type label သတ်မှတ်အောင် slice ဖြတ် (bytes မပြောင်း)
-    const typedBlob = plainBlob.slice(0, plainBlob.size, mime);
-    const url = URL.createObjectURL(typedBlob);
-
-    // 5) modal UI clear & title
-    previewTitle.textContent = m.title || m.originalName || "Preview";
-    previewBody.innerHTML = "";
-
-    if (mime.startsWith("image/")) {
+    if ((m.mimeType || "").startsWith("image/")) {
       const img = document.createElement("img");
       img.src = url;
       img.alt = m.originalName || "image";
       img.className = "preview-image";
       previewBody.appendChild(img);
-    } else if (mime === "application/pdf") {
+    } else if ((m.mimeType || "") === "application/pdf") {
       const emb = document.createElement("embed");
       emb.src = url;
       emb.type = "application/pdf";
       emb.className = "preview-pdf";
       previewBody.appendChild(emb);
     } else {
-      // PDF/IMAGE မဟုတ်ရင် → message ပေး
       const p = document.createElement("p");
       p.className = "hint";
-      p.textContent =
-        "This file type is best viewed after Download (not in inline preview).";
+      p.textContent = "This file type is best viewed after Download.";
       previewBody.appendChild(p);
     }
 
@@ -917,7 +929,6 @@ async function handlePreview(m) {
   } catch (e) {
     console.error(e);
     const msg = String(e?.message || e);
-
     if (msg.includes("Drive download failed")) {
       uploadStatus.textContent =
         "Can't fetch from Drive (signin/scope/tester/origin). " + msg;
@@ -933,9 +944,7 @@ async function handlePreview(m) {
       uploadStatus.textContent =
         "Decrypt failed. Wrong password or corrupted file.";
     }
-
-    uploadStatus.className = "status err";
-    previewModal.classList.add("hidden");
+    uploadStatus.classList.add("err");
   }
 }
 
@@ -1016,15 +1025,15 @@ editForm.addEventListener("submit", async (e) => {
   }
 });
 
-async function changeVaultPassword(oldPw, newPw) {
+async function changeVaultPassword(oldPw, newPw, onProgress) {
   if (!accessToken) throw new Error("Sign in first.");
   if (!oldPw || !newPw) throw new Error("Passwords required.");
 
   const total = metadata.length;
-  let ok = 0;
-  let fail = 0;
+  let ok = 0, fail = 0;
 
-  for (const m of metadata) {
+  for (let i = 0; i < metadata.length; i++) {
+    const m = metadata[i];
     try {
       validateMetaForDecrypt(m);
 
@@ -1037,17 +1046,13 @@ async function changeVaultPassword(oldPw, newPw) {
       // 3) encrypt with NEW password
       const { blob: newEnc, iv: newIv, salt: newSalt } =
         await encryptFileWithPassword(
-          new File([plain], m.originalName, {
-            type: m.mimeType || "application/octet-stream",
-          }),
+          new File([plain], m.originalName, { type: m.mimeType || "application/octet-stream" }),
           newPw
         );
 
-      // 4) replace Drive file content via media upload
+      // 4) replace Drive file content (media upload via fetch ✅)
       const resp = await fetch(
-        `https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(
-          m.id
-        )}?uploadType=media`,
+        `https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(m.id)}?uploadType=media`,
         {
           method: "PATCH",
           headers: {
@@ -1059,38 +1064,32 @@ async function changeVaultPassword(oldPw, newPw) {
       );
       if (!resp.ok) {
         const text = await resp.text().catch(() => "");
-        throw new Error(
-          `Re-encrypt upload failed ${resp.status}: ${text.slice(0, 200)}`
-        );
+        throw new Error(`media PATCH failed ${resp.status}: ${text.slice(0,200)}`);
       }
 
-      // 5) optional sanity check
-      try {
-        const remote = await getRemoteFileMeta(m.id);
-        if (!remote.size || Number(remote.size) < 32) {
-          throw new Error(
-            `Remote encrypted file looks too small after rekey (${remote.size}B).`
-          );
-        }
-      } catch (err) {
-        console.warn("getRemoteFileMeta failed after rekey", err);
+      // (optional) sanity check remote size
+      const remote = await getRemoteFileMeta(m.id);
+      if (!remote.size || Number(remote.size) < 32) {
+        throw new Error(`remote too small after re-encrypt (${remote.size}B)`);
       }
 
-      // 6) update metadata (iv/salt)
+      // 5) update metadata (iv/salt) only after successful upload
       m.iv = newIv;
       m.salt = newSalt;
+      (m.logs ??= []).push({ type: "rekey", ts: new Date().toISOString() });
+
       ok++;
-    } catch (err) {
-      console.error(
-        "re-encrypt failed for",
-        m.title || m.originalName,
-        err
-      );
+    } catch (e) {
+      console.error("re-encrypt failed for", m.title || m.originalName, e);
       fail++;
+    } finally {
+      if (typeof onProgress === "function") onProgress({ i: i + 1, total, ok, fail });
     }
   }
 
+  // persist metadata to Drive (saveMetadata already uses fetch+media)
   await saveMetadata();
+
   return { ok, fail, total };
 }
 
@@ -1127,28 +1126,32 @@ function renderActivity() {
 
 // ===== DASHBOARD CARDS =====
 function renderDashboard() {
-  dashContainer.innerHTML = "";
+  const host = document.getElementById("dash-cards");
+  if (!host) return;
+  host.innerHTML = "";
 
-  if (!accessToken) {
-    // show static cards 0
-    Object.entries(CATEGORY_CONFIG).forEach(([key, conf]) => {
-      const card = makeDashCard(conf, 0, key);
-      dashContainer.appendChild(card);
-    });
-    return;
+  // count by category
+  const counts = {};
+  Object.keys(CATEGORY_CONF).forEach(k => counts[k] = 0);
+  for (const m of metadata) {
+    const k = getCategoryConf(m.category).key;
+    counts[k] = (counts[k] || 0) + 1;
   }
 
-  const counts = {};
-  Object.keys(CATEGORY_CONFIG).forEach((k) => (counts[k] = 0));
-  metadata.forEach((m) => {
-    const c = m.category || "other";
-    if (!counts[c]) counts[c] = 0;
-    counts[c]++;
-  });
-
-  Object.entries(CATEGORY_CONFIG).forEach(([key, conf]) => {
-    const card = makeDashCard(conf, counts[key] || 0, key);
-    dashContainer.appendChild(card);
+  // draw a card for each category
+  Object.values(CATEGORY_CONF).forEach(c => {
+    const card = document.createElement("button");
+    card.className = "card";
+    card.style.borderColor = c.color;
+    card.innerHTML = `
+      <div class="card-top">
+        <span class="emoji">${c.icon}</span>
+        <span class="count">${counts[c.key] || 0}</span>
+      </div>
+      <div class="card-title">${c.label}</div>
+    `;
+    card.addEventListener("click", () => openCategoryModal(c.key, c));
+    host.appendChild(card);
   });
 }
 
@@ -1182,6 +1185,8 @@ function makeDashCard(conf, count, categoryKey) {
 
 // ===== CATEGORY MODAL (Password-gated view) =====
 function openCategoryModal(categoryKey, conf) {
+  conf = conf || getCategoryConf(categoryKey);
+  const items = metadata.filter(m => (getCategoryConf(m.category).key === conf.key));
   if (!accessToken) {
     alert("Please sign in first.");
     return;
@@ -1195,7 +1200,7 @@ function openCategoryModal(categoryKey, conf) {
     return;
   }
 
-  const items = metadata.filter((m) => m.category === categoryKey);
+  // const items = metadata.filter((m) => m.category === categoryKey);
   modalTitle.textContent = `${conf.icon} ${conf.label} — ${items.length} item(s)`;
   modalBody.innerHTML = "";
 
@@ -1204,200 +1209,181 @@ function openCategoryModal(categoryKey, conf) {
     p.className = "hint";
     p.textContent = "No items in this category yet.";
     modalBody.appendChild(p);
-  } else {
-    items
-      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
-      .forEach((m) => {
-        const row = document.createElement("div");
-        row.className = "modal-item";
-
-        const left = document.createElement("div");
-        const t = document.createElement("div");
-        t.className = "vault-title";
-        t.textContent = m.title || m.originalName;
-        const meta = document.createElement("div");
-        meta.className = "vault-meta";
-        meta.textContent =
-          (m.date || m.createdAt?.slice(0, 10) || "") +
-          " • " +
-          humanSize(m.size);
-        if (m.album) {
-          const alb = document.createElement("span");
-          alb.className = "album-label";
-          alb.textContent = "Album: " + m.album;
-          meta.appendChild(alb);
-        }
-        left.appendChild(t);
-        left.appendChild(meta);
-
-        const tagsEl = document.createElement("div");
-        if (m.tags?.length) {
-          m.tags.forEach((tg) => {
-            const span = document.createElement("span");
-            span.className = "tag";
-            span.textContent = tg;
-            tagsEl.appendChild(span);
-          });
-        }
-
-        const actions = document.createElement("div");
-        actions.style.display = "flex";
-        actions.style.gap = "4px";
-
-        const btnPrev = document.createElement("button");
-        btnPrev.className = "btn small";
-        btnPrev.textContent = "Preview";
-        btnPrev.addEventListener("click", () => handlePreview(m));
-        actions.appendChild(btnPrev);
-
-        const btnDown = document.createElement("button");
-        btnDown.className = "btn small";
-        btnDown.textContent = "Download";
-        btnDown.addEventListener("click", () => handleDownload(m));
-        actions.appendChild(btnDown);
-
-        const btnEd = document.createElement("button");
-        btnEd.className = "btn small ghost";
-        btnEd.textContent = "Edit";
-        btnEd.addEventListener("click", () => openEditModal(m));
-        actions.appendChild(btnEd);
-
-        row.appendChild(left);
-        row.appendChild(tagsEl);
-        row.appendChild(actions);
-
-        modalBody.appendChild(row);
-      });
+    modal.classList.remove("hidden");
+    return;
   }
 
+  // ✅ Photos: add Gallery toggle
+  if (categoryKey === "photos") {
+    // toolbar
+    const bar = document.createElement("div");
+    bar.className = "gallery-toolbar";
+    const btnList = document.createElement("button");
+    btnList.className = "btn small ghost";
+    btnList.textContent = "List";
+    const btnGrid = document.createElement("button");
+    btnGrid.className = "btn small";
+    btnGrid.textContent = "Gallery";
+    bar.appendChild(btnList);
+    bar.appendChild(btnGrid);
+    modalBody.appendChild(bar);
+
+    const gridHost = document.createElement("div");
+    const listHost = document.createElement("div");
+    modalBody.appendChild(gridHost);
+    modalBody.appendChild(listHost);
+
+    // default show List
+    listHost.style.display = "block";
+    gridHost.style.display = "none";
+
+    // render list (existing list layout)
+    renderPhotoList(items, listHost);
+
+    // render grid (decrypt first N thumbnails)
+    let galleryInited = false;
+    btnGrid.addEventListener("click", async () => {
+      listHost.style.display = "none";
+      gridHost.style.display = "block";
+      if (!galleryInited) {
+        await renderPhotoGrid(items, gridHost);
+        galleryInited = true;
+      }
+      btnGrid.classList.add("primary");
+      btnList.classList.remove("primary");
+    });
+    btnList.addEventListener("click", () => {
+      gridHost.style.display = "none";
+      listHost.style.display = "block";
+      btnList.classList.add("primary");
+      btnGrid.classList.remove("primary");
+    });
+
+    modal.classList.remove("hidden");
+    return;
+  }
+
+  // 🔁 Non-photos: original list rows
+  items
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+    .forEach((m) => appendModalRow(m));
   modal.classList.remove("hidden");
 }
 
-// ========== DEV PANEL (Admin only) ==========
-
-let MV_DEBUG = false;
-
-// debug log helper
-function devLog(...args) {
-  if (MV_DEBUG) {
-    console.log("[MyVault DEV]", ...args);
+// helper: render normal list row into modalBody (used by non-photos & list view)
+function appendModalRow(m) {
+  const row = document.createElement("div");
+  row.className = "modal-item";
+  const left = document.createElement("div");
+  const t = document.createElement("div");
+  t.className = "vault-title";
+  t.textContent = m.title || m.originalName;
+  const meta = document.createElement("div");
+  meta.className = "vault-meta";
+  meta.textContent =
+    (m.date || m.createdAt?.slice(0, 10) || "") + " • " + humanSize(m.size);
+  if (m.album) {
+    const alb = document.createElement("span");
+    alb.className = "album-label";
+    alb.textContent = "Album: " + m.album;
+    meta.appendChild(alb);
   }
+  left.appendChild(t);
+  left.appendChild(meta);
+
+  const tagsEl = document.createElement("div");
+  if (m.tags?.length)
+    m.tags.forEach((tg) => {
+      const sp = document.createElement("span");
+      sp.className = "tag";
+      sp.textContent = tg;
+      tagsEl.appendChild(sp);
+    });
+
+  const actions = document.createElement("div");
+  actions.style.display = "flex";
+  actions.style.gap = "4px";
+  const btnPrev = document.createElement("button");
+  btnPrev.className = "btn small";
+  btnPrev.textContent = "Preview";
+  btnPrev.addEventListener("click", () => handlePreview(m));
+  const btnDown = document.createElement("button");
+  btnDown.className = "btn small";
+  btnDown.textContent = "Download";
+  btnDown.addEventListener("click", () => handleDownload(m));
+  const btnEd = document.createElement("button");
+  btnEd.className = "btn small ghost";
+  btnEd.textContent = "Edit";
+  btnEd.addEventListener("click", () => openEditModal(m));
+  actions.appendChild(btnPrev);
+  actions.appendChild(btnDown);
+  actions.appendChild(btnEd);
+
+  row.appendChild(left);
+  row.appendChild(tagsEl);
+  row.appendChild(actions);
+  modalBody.appendChild(row);
+}
+function renderPhotoList(items, host) {
+  host.innerHTML = "";
+  items
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+    .forEach((m) => host.appendChild(appendModalRowReturn(m)));
+}
+// same as appendModalRow but returns element to append somewhere else
+function appendModalRowReturn(m) {
+  const tmp = document.createElement("div");
+  appendModalRow(m);
+  const el = modalBody.lastChild;
+  modalBody.removeChild(el);
+  return el;
 }
 
-const devDebugToggle = document.getElementById("dev-debug-toggle");
-const devMetaArea    = document.getElementById("dev-meta-json");
-const devCacheArea   = document.getElementById("dev-cache-json");
+// gallery renderer (decrypt first N=12 thumbnails)
+async function renderPhotoGrid(items, host) {
+  host.innerHTML = "";
+  const pw = vaultPasswordInput.value.trim();
+  const grid = document.createElement("div");
+  grid.className = "photo-grid";
+  host.appendChild(grid);
 
-if (devDebugToggle) {
-  devDebugToggle.addEventListener("change", (e) => {
-    MV_DEBUG = e.target.checked;
-    devLog("Debug mode:", MV_DEBUG);
-  });
-}
+  // first 12 for speed; can add "Load more" later
+  const subset = items
+    .slice()
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+    .slice(0, 12);
 
-// helper: render metadata[] into textarea
-function refreshDevMetadataView() {
-  if (!devMetaArea) return;
-  try {
-    devMetaArea.value = JSON.stringify(metadata || [], null, 2);
-  } catch (err) {
-    devMetaArea.value = "Error while stringifying metadata: " + (err.message || err);
+  for (const m of subset) {
+    const card = document.createElement("div");
+    card.className = "photo-card";
+    const img = document.createElement("img");
+    img.className = "photo-thumb";
+    img.alt = m.title || m.originalName;
+
+    try {
+      validateMetaForDecrypt(m);
+      const enc = await downloadFileBlob(m.id);
+      const plain = await decryptBlobWithPassword(enc, pw, m.iv, m.salt);
+      const url = URL.createObjectURL(plain);
+      img.src = url;
+
+      img.addEventListener("click", () => handlePreview(m)); // click to open full preview
+    } catch (e) {
+      console.error("thumb fail", m.originalName, e);
+      img.alt = "preview failed";
+    }
+
+    const cap = document.createElement("div");
+    cap.className = "photo-caption";
+    cap.textContent = m.album
+      ? `${m.album} • ${m.title || m.originalName}`
+      : m.title || m.originalName;
+
+    card.appendChild(img);
+    card.appendChild(cap);
+    grid.appendChild(card);
   }
 }
-
-// Dev buttons
-const btnDumpMeta   = document.getElementById("dev-btn-dump-meta");
-const btnDumpCache  = document.getElementById("dev-btn-dump-cache");
-const btnReloadMeta = document.getElementById("dev-btn-reload-meta");
-const btnClearCache = document.getElementById("dev-btn-clear-cache");
-
-btnDumpMeta?.addEventListener("click", () => {
-  refreshDevMetadataView();
-  devLog("Dumped metadata to textarea");
-});
-
-btnDumpCache?.addEventListener("click", () => {
-  if (!devCacheArea) return;
-  const cache = localStorage.getItem("myvault_meta_cache");
-  devCacheArea.value = cache || "";
-  devLog("Loaded cache from localStorage");
-});
-
-btnReloadMeta?.addEventListener("click", async () => {
-  try {
-    devLog("Reloading metadata from Drive...");
-    await loadMetadata();
-    renderVaultList();
-    renderDashboard && renderDashboard();
-    renderActivity && renderActivity();
-    refreshDevMetadataView();
-    alert("Reloaded metadata from Drive.");
-  } catch (err) {
-    console.error(err);
-    alert("Reload metadata failed: " + (err.message || err));
-  }
-});
-
-btnClearCache?.addEventListener("click", () => {
-  try {
-    localStorage.removeItem("myvault_meta_cache");
-    if (devCacheArea) devCacheArea.value = "";
-    devLog("Cleared local cache");
-    alert("Local cache cleared.");
-  } catch (err) {
-    console.error(err);
-    alert("Failed to clear cache: " + (err.message || err));
-  }
-});
-
-// optional: prime dev metadata view when page loads and metadata already in memory
-if (devMetaArea && Array.isArray(metadata)) {
-  refreshDevMetadataView();
-}
-
-// --- FOOTER BUTTONS → SHOW DRAWER ---
-const footerBtns = document.querySelectorAll(".footer-btn");
-
-footerBtns.forEach((btn) => {
-  btn.addEventListener("click", () => {
-    const tab = btn.dataset.tab;       // "help" or "dev"
-    showDrawer(tab);
-  });
-});
-
-// Help / Dev drawer ကို ဖွင့်မယ်
-function showDrawer(tab) {
-  // tab-panel အားလုံးကို ပထမဆုံး ပိတ်ထားမယ်
-  document.querySelectorAll(".tab-panel").forEach((p) => {
-    p.classList.add("hidden");
-    p.classList.remove("active");
-  });
-
-  // ပြထားချင်တဲ့ panel ကို ဖွင့်မယ်
-  const panel = document.getElementById(`tab-${tab}`);
-  if (panel) {
-    panel.classList.remove("hidden");
-    panel.classList.add("active");
-  }
-}
-
-// Drawer ကို ပိတ်ချင်ရင် (X ခလုတ်ထဲကနေခေါ်မယ်)
-function closeDrawer() {
-  document.querySelectorAll(".tab-panel").forEach((p) => {
-    p.classList.add("hidden");
-    p.classList.remove("active");
-  });
-
-  // main view ကို dashboard လို့ပြန်ထားချင်ရင် ဒီလို ထပ်လို့ရ
-  if (typeof switchTab === "function") {
-    switchTab("dashboard");
-  }
-}
-
-// close drawer when user taps outside (optional)
-document.addEventListener("click", (e) => {
-  if (e.target.classList.contains("tab-panel")) return;
-});
 
 modalClose.addEventListener("click", () => {
   modal.classList.add("hidden");

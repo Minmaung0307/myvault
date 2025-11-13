@@ -33,6 +33,7 @@
               <option value="lg">A+</option>
             </select>
           </div>
+
           <button id="btn-signin" class="btn primary" disabled>
             Sign in with Google
           </button>
@@ -98,13 +99,21 @@
             <div class="form-row">
               <label>Category</label>
               <select id="file-category">
+                <option value="ids">IDs & Identity</option>
+                <option value="immigration">Immigration & Status</option>
+                <option value="legal">Legal Documents</option>
                 <option value="tax">Tax Returns</option>
-                <option value="ids">IDs & Passports</option>
-                <option value="business">Business Agreements</option>
+                <option value="payment">Finance & Payments</option>
                 <option value="housing">Housing / Lease / Mortgage</option>
+                <option value="vehicles">Vehicles & Driving</option>
+                <option value="health">Health & Medical</option>
+                <option value="work">Work & Employment</option>
+                <option value="education">Education & Certificates</option>
+                <option value="business">Business / LLC</option>
                 <option value="membership">Memberships & Cards</option>
-                <option value="payment">Payments & Insurance</option>
+                <option value="receipts">Receipts & Warranty</option>
                 <option value="photos">Photos & Albums</option>
+                <option value="applicationa">Applications & Forms</option>
                 <option value="other">Other</option>
               </select>
             </div>
@@ -181,13 +190,21 @@
               />
               <select id="filter-category">
                 <option value="">All</option>
-                <option value="tax">Tax</option>
                 <option value="ids">IDs</option>
-                <option value="business">Business</option>
+                <option value="immigration">Immigration</option>
+                <option value="legal">Legal</option>
+                <option value="tax">Tax</option>
+                <option value="payment">Finance / Payments</option>
                 <option value="housing">Housing</option>
+                <option value="vehicles">Vehicles</option>
+                <option value="health">Health</option>
+                <option value="work">Work</option>
+                <option value="education">Education</option>
+                <option value="business">Business</option>
                 <option value="membership">Memberships</option>
-                <option value="payment">Payments</option>
+                <option value="receipts">Receipts</option>
                 <option value="photos">Photos</option>
+                <option value="applicationa">Applications / Forms</option>
                 <option value="other">Other</option>
               </select>
             </div>
@@ -204,7 +221,253 @@
             <ul id="activity-list" class="mini-list"></ul>
           </div>
         </section>
+
+        <!-- Help / Guide Tab -->
+        <section id="tab-help" class="tab-panel hidden">
+          <div class="card">
+            <!-- CLOSE BUTTON -->
+            <button type="button" class="drawer-close" onclick="closeDrawer()">
+              ✕
+            </button>
+            <h2>MyVault – User Guide</h2>
+            <p>
+              အောက်ကအတိုင်း MyVault app ကို သင့်ကိုယ်ပိုင် ကာကွယ်ထားတဲ့ vault
+              လို အသုံးပြုနိုင်ပါတယ်။
+            </p>
+
+            <h3>1. ပထမဆုံး အသုံးပြုတဲ့အခါ</h3>
+            <ol>
+              <li>
+                <strong>Sign in with Google</strong> – ခလုတ်ကိုနှိပ်ပြီး Google
+                popup ထဲမှာ Drive access ကို Allow လုပ်ပါ။
+              </li>
+              <li>
+                <strong>Vault Password သတ်မှတ်ရန်</strong> – Vault password ကို
+                ထည့်ထားရပါမယ်။ ဒီ password သာလျှင် ဖိုင်တွေကို decrypt
+                လုပ်ဖို့လိုပါတယ်။ မေ့သွားရင် ဖိုင်ဟောင်းတွေကို ဖြေဖို့မရတော့ပါ။
+              </li>
+            </ol>
+
+            <h3>2. Encrypt &amp; Upload လုပ်နည်း</h3>
+            <ol>
+              <li>
+                <strong>Form ဖြည့်ရန်</strong> – Title, Category, Date, Album
+                (Photos အတွက်), Tags ကိုလိုသလိုဖြည့်နိုင်ပါတယ်။
+              </li>
+              <li>
+                <strong>Choose Files</strong> – PDF, Image, DOCX စတဲ့
+                ဖိုင်တွေကို တစ်ခါတည်း အများကြီးရွေးနိုင်ပါတယ်။
+              </li>
+              <li>
+                <strong>Encrypt &amp; Upload</strong> – ခလုတ်ကိုနှိပ်လိုက်ရင်:
+                <ul>
+                  <li>Browser ထဲမှာ AES-GCM နဲ့ encrypt လုပ်မယ်</li>
+                  <li>
+                    Encrypted blob ကို Google Drive MyVault folder ထဲ upload
+                    လုပ်မယ်
+                  </li>
+                  <li>
+                    <code>vault_meta.json</code> ထဲမှာ metadata (id / title /
+                    category / tags / iv / salt …) သိမ်းမယ်
+                  </li>
+                </ul>
+              </li>
+            </ol>
+
+            <h3>3. Files ကို ပြန်ရှာပြီး ကြည့်နည်း</h3>
+            <ul>
+              <li>
+                <strong>Dashboard</strong> – Category card တွေ (Tax, IDs,
+                Business…) သတ်မှတ်ထားတဲ့ count ကိုမြင်ရမယ်။
+              </li>
+              <li>
+                <strong>Search &amp; Filter</strong> – လူကြိုက်အဖြာ title / tag
+                / category နဲ့ filter လုပ်နိုင်ပါတယ်။
+              </li>
+              <li>
+                <strong>Preview</strong> – Row မှာ <em>Preview</em> ကိုနှိပ်ရင်
+                Vault password နဲ့ decrypt လုပ်ပြီး PDF / Image ကို app အတွင်း
+                မှန်ကန်တဲ့ viewer နဲ့ ပြပေးမယ်။
+              </li>
+              <li>
+                <strong>Download</strong> – <em>Download</em> ကိုနှိပ်ရင်
+                decrypt လုပ်ပြီး original file type နဲ့ ချက်ချင်း download
+                လုပ်ပေးမယ်။
+              </li>
+            </ul>
+
+            <h3>4. Photos &amp; Albums</h3>
+            <ul>
+              <li>
+                Category ကို <strong>Photos</strong> လို့ရွေးထားတဲ့ ဖိုင်တွေမှာ
+                Album field ကို သတ်မှတ်နိုင်ပါတယ်။
+              </li>
+              <li>
+                Photos tab / Category modal ထဲက album အလိုက် gallery (grid)
+                နဲ့လည်း ပြပေးနိုင်ပါတယ် (upgrade မိတယ်ဆိုရင်).
+              </li>
+            </ul>
+
+            <h3>5. Vault Password ပြန်ပြောင်းချင်ရင်</h3>
+            <ul>
+              <li>
+                Settings ထဲက <em>Change Vault Password</em> UI မှာ Old + New
+                password ထည့်ပြီး confirm လုပ်ပါ။
+              </li>
+              <li>
+                App က metadata entry တစ်ခုချင်းစီအတွက်
+                <ol>
+                  <li>Old password နဲ့ decrypt</li>
+                  <li>New password နဲ့ re-encrypt</li>
+                  <li>
+                    Drive ထဲရှိ encrypted file content ကို media upload နဲ့
+                    PATCH လုပ်မယ်
+                  </li>
+                  <li>iv / salt ကို metadata ထဲ update &amp; save လုပ်မယ်</li>
+                </ol>
+              </li>
+            </ul>
+
+            <hr />
+
+            <h2>Developer Notes (Admin အတွက်)</h2>
+            <h3>Architecture</h3>
+            <ul>
+              <li>
+                <strong>Frontend only</strong> – HTML + CSS + vanilla JS သာသုံး,
+                backend server မလို
+              </li>
+              <li>
+                <strong>Auth</strong> – Google Identity Services (GIS) နဲ့
+                OAuth2 access token ရယူ
+              </li>
+              <li>
+                <strong>Storage</strong> – Google Drive API v3 တြင်
+                <ul>
+                  <li>Encrypted file data (.enc) → MyVault folder</li>
+                  <li><code>vault_meta.json</code> → metadata array</li>
+                  <li>
+                    <code>localStorage["myvault_meta_cache"]</code> → UI cache
+                    (refresh-safe)
+                  </li>
+                </ul>
+              </li>
+            </ul>
+
+            <h3>Metadata Structure</h3>
+            <pre><code>{
+  id: "drive-file-id",
+  title: "2024 Tax Return",
+  category: "tax",
+  tags: ["tax", "2024", "irs"],
+  album: "2024",
+  date: "2024-04-15",
+  originalName: "2024_tax_return.pdf",
+  size: 123456,
+  mimeType: "application/pdf",
+  iv: "base64-iv",
+  salt: "base64-salt",
+  createdAt: "2024-04-16T12:34:56.789Z",
+  logs: [
+    { type: "upload", ts: "2024-04-16T12:34:56.789Z" },
+    { type: "rekey",  ts: "2025-01-01T09:00:00.000Z" }
+  ]
+}</code></pre>
+
+            <h3>Category အသစ်ထည့်နည်း (short)</h3>
+            <ol>
+              <li>
+                <strong>app.js / CATEGORY_CONFIG</strong> ထဲက object ထဲကို key
+                အသစ်ထည့်ပါ (ဥပမာ <code>medical</code>):
+              </li>
+            </ol>
+            <pre><code>const CATEGORY_CONFIG = {
+  tax:     { label: "Tax Returns",     icon: "📄", color: "#38bdf8" },
+  ...
+  medical: { label: "Medical Records", icon: "🩺", color: "#10b981" },
+  other:   { label: "Other",           icon: "📁", color: "#9ca3af" },
+};</code></pre>
+
+            <ol start="2">
+              <li>
+                <strong>index.html</strong> ထဲက
+                <code>&lt;select id="file-category"&gt;</code>,
+                <code>filter-category</code>, <code>edit-category</code> တွင်
+                <code
+                  >&lt;option value="medical"&gt;Medical
+                  Records&lt;/option&gt;</code
+                >
+                ထပ်ထည့်ပါ။
+              </li>
+              <li>
+                Upload handler ထဲမှာ
+                <code>category = getCategoryConf(category).key;</code> နဲ့
+                normalize လုပ်ထားသလောက်၊ unknown values들은
+                <code>other</code> ကို default သတ်မယ်။
+              </li>
+            </ol>
+          </div>
+        </section>
+
+        <!-- Developer Panel Tab (Admin only) -->
+        <section id="tab-dev" class="tab-panel hidden">
+          <div class="card">
+            <!-- CLOSE BUTTON -->
+            <button type="button" class="drawer-close" onclick="closeDrawer()">
+              ✕
+            </button>
+            <h2>Developer Panel (Admin Only)</h2>
+            <p class="hint">
+              ဒီခန်းက ကိုယ်တိုင်သုံးဖို့အတော်ပဲနော် – metadata / cache / debug
+              ကိုစစ်ကြည့်ဖို့အတွက်။
+            </p>
+
+            <div class="dev-row">
+              <label>
+                <input type="checkbox" id="dev-debug-toggle" />
+                Enable console debug logs (MV_DEBUG)
+              </label>
+            </div>
+
+            <div class="dev-row">
+              <button type="button" id="dev-btn-dump-meta" class="btn small">
+                Show metadata[]
+              </button>
+              <button type="button" id="dev-btn-dump-cache" class="btn small">
+                Show localStorage cache
+              </button>
+              <button type="button" id="dev-btn-reload-meta" class="btn small">
+                Reload metadata from Drive
+              </button>
+              <button
+                type="button"
+                id="dev-btn-clear-cache"
+                class="btn small danger"
+              >
+                Clear local cache
+              </button>
+            </div>
+
+            <h3>metadata[] (live in memory)</h3>
+            <textarea
+              id="dev-meta-json"
+              class="dev-textarea"
+              readonly
+            ></textarea>
+
+            <h3>localStorage["myvault_meta_cache"]</h3>
+            <textarea
+              id="dev-cache-json"
+              class="dev-textarea"
+              readonly
+            ></textarea>
+          </div>
+        </section>
       </main>
+      <footer class="footer-bar">
+        <button class="footer-btn" data-tab="help">Help / Guide</button>
+        <button class="footer-btn" data-tab="dev">Dev Panel</button>
+      </footer>
     </div>
 
     <!-- CATEGORY MODAL -->
@@ -271,13 +534,21 @@
             <div class="form-row">
               <label class="label">Category</label>
               <select id="edit-category">
+                <option value="ids">IDs & Identity</option>
+                <option value="immigration">Immigration & Status</option>
+                <option value="legal">Legal Documents</option>
                 <option value="tax">Tax Returns</option>
-                <option value="ids">IDs & Passports</option>
-                <option value="business">Business</option>
-                <option value="housing">Housing</option>
-                <option value="membership">Memberships</option>
-                <option value="payment">Payments</option>
+                <option value="payment">Finance & Payments</option>
+                <option value="housing">Housing / Lease</option>
+                <option value="vehicles">Vehicles & Driving</option>
+                <option value="health">Health & Medical</option>
+                <option value="work">Work & Employment</option>
+                <option value="education">Education & Certificates</option>
+                <option value="business">Business / LLC</option>
+                <option value="membership">Memberships & Cards</option>
+                <option value="receipts">Receipts & Warranty</option>
                 <option value="photos">Photos & Albums</option>
+                <option value="applicationa">Applications & Forms</option>
                 <option value="other">Other</option>
               </select>
             </div>
