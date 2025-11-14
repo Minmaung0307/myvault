@@ -103,6 +103,7 @@
 }
 
 :root[data-theme="amoled"] .btn.primary {
+  margin-left: 14px;
   background: #22c55e;
   color: #020617;
 }
@@ -361,6 +362,7 @@ body {
 }
 
 .btn.ghost {
+  margin-left: 14px;
   background: transparent;
   color: var(--muted);
   border: 1px solid rgba(148,163,253,0.3);
@@ -423,7 +425,8 @@ body {
 
 input,
 select {
-  width: 100%;
+  margin-left: 12px;
+  /* width: 100%; */
   padding: 6px 8px;
   border-radius: var(--radius-md);
   border: 1px solid rgba(75,85,99,0.9);
