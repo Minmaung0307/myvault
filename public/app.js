@@ -23,8 +23,8 @@ const CATEGORY_CONFIG = {
   receipts:   { label: "Receipts & Warranty",     icon: "🧾", color: "#f59e0b" },
   photos:     { label: "Photos & Albums",         icon: "📷", color: "#ec4899" },
 
-  // ဟောင်း data-compatible key: applicationa
-  applicationa: { label: "Applications & Forms",  icon: "📁", color: "#3b82f6" },
+  // ဟောင်း data-compatible key: applications
+  applications: { label: "Applications & Forms",  icon: "🗂️", color: "#3b82f6" },
 
   other:      { label: "Other",                   icon: "📁", color: "#9ca3af" },
 };
@@ -84,6 +84,22 @@ const fontSelect = document.getElementById("font-select");
 
 function getCategoryConf(key) {
   return CATEGORY_CONFIG[key] || CATEGORY_CONFIG.other;
+}
+
+// Date picker icon → open native date picker
+const fileDateInput = document.getElementById("file-date");
+const btnDatePicker = document.getElementById("btn-date-picker");
+
+if (btnDatePicker && fileDateInput) {
+  btnDatePicker.addEventListener("click", () => {
+    if (typeof fileDateInput.showPicker === "function") {
+      // Chrome, Edge, etc.
+      fileDateInput.showPicker();
+    } else {
+      // Safari, Firefox → focus only
+      fileDateInput.focus();
+    }
+  });
 }
 
 // ----- Simple tab switching (Dashboard / Upload / Help / Dev ...) -----
