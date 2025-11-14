@@ -233,6 +233,60 @@ body {
   border: 1px solid rgba(148,163,253,0.16);
   box-shadow: var(--shadow-soft);
   backdrop-filter: blur(16px);
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-subtle, #1f2933);
+}
+
+/* ပထမ row: logo + actions */
+.header-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+/* ဒုတိယ row: welcome message */
+.welcome-banner {
+  margin-top: 0.35rem;
+  padding: 0.3rem 0.75rem;
+  text-align: center;
+  font-size: 0.85rem;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.12); /* သာမန် ထိပ်ဆင့် highlight */
+  color: var(--accent-text, #e5f6ff);
+}
+
+/* JS က hidden class ထည့်ထားတဲ့အခါ ဖျောက်မယ် */
+.welcome-banner.hidden {
+  display: none;
+}
+
+.activity-log {
+  margin-bottom: 3.5rem; /* footer buffer */
+}
+
+/* MOBILE – header ကို column ပြောင်း, welcome ကို အလယ်သီးသန့် */
+@media (max-width: 768px) {
+  .header-main {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .header-actions {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .welcome-banner {
+    width: 100%;
+    margin-top: 0.4rem;
+  }
+
+  .activity-log {
+    padding-bottom: 4.5rem; /* extra safe spacing for mobile */
+  }
 }
 
 .logo {
@@ -328,7 +382,7 @@ body {
   background: var(--bg-elevated);
   border-radius: var(--radius-xl);
   padding: 10px;
-  margin-bottom: 10px;
+  margin-bottom: 17px;
   border: var(--border-subtle);
   box-shadow: var(--shadow-soft);
 }
@@ -882,6 +936,54 @@ footer {
 
 .input-with-icon .icon-btn:hover {
   opacity: 1;
+}
+
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--accent);
+  color: white;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  z-index: 9999;
+}
+
+.toast.show {
+  opacity: 1;
+}
+
+.toast.hidden {
+  display: none;
+}
+
+/* Footer buttons bar */
+.footer-bar {
+  margin-top: 1.5rem;       /* main content ကနေ အထက်ထဲက فاصله */
+  padding-top: 0.75rem;
+  padding-bottom: 1.2rem;
+  border-top: 1px solid var(--border-subtle, #1f2933);
+  position: static !important;   /* fixed ကိုဖယ် */
+  bottom: auto;
+  width: 100%;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+/* Mobile မှာ button တွေကို 100% width ထည့်ချင်ရင် */
+@media (max-width: 640px) {
+  .footer-bar {
+    flex-direction: column;
+  }
+  .footer-bar .btn {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 /* ======================

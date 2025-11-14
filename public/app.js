@@ -2,31 +2,45 @@
 const CLIENT_ID =
   "27254719227-e0rgbjkkn0j23v0t3ecd12dicqe0d4o4.apps.googleusercontent.com";
 const API_KEY = "";
-const SCOPES = "https://www.googleapis.com/auth/drive.file";
+const SCOPES =
+  "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile openid";
 
 const META_FILE_NAME = "vault_meta.json";
 const VAULT_FOLDER_NAME = "MyVault";
 
+// ✅ အAuthorized user စာရင်း (၁၅ ယောက်ထိ)
+const ALLOWED_USERS = [
+  "honeymoe093@gmail.com",
+  "minmaung0307@gmail.com",
+  "user3@gmail.com",
+  // ...
+  "user15@gmail.com",
+];
+
 const CATEGORY_CONFIG = {
-  ids:        { label: "IDs & Identity",          icon: "🪪", color: "#facc15" },
-  immigration:{ label: "Immigration & Status",    icon: "🛂", color: "#38bdf8" },
-  legal:      { label: "Legal Documents",         icon: "⚖️", color: "#f97316" },
-  tax:        { label: "Tax Returns",             icon: "📄", color: "#22c55e" },
-  payment:    { label: "Finance & Payments",      icon: "💳", color: "#6366f1" },
-  housing:    { label: "Housing / Lease",         icon: "🏠", color: "#a855f7" },
-  vehicles:   { label: "Vehicles & Driving",      icon: "🚗", color: "#0ea5e9" },
-  health:     { label: "Health & Medical",        icon: "🩺", color: "#10b981" },
-  work:       { label: "Work & Employment",       icon: "💼", color: "#eab308" },
-  education:  { label: "Education & Certificates",icon: "🎓", color: "#ec4899" },
-  business:   { label: "Business & LLC",          icon: "📑", color: "#22c55e" },
-  membership: { label: "Memberships & Cards",     icon: "🎫", color: "#f97316" },
-  receipts:   { label: "Receipts & Warranty",     icon: "🧾", color: "#f59e0b" },
-  photos:     { label: "Photos & Albums",         icon: "📷", color: "#ec4899" },
+  ids: { label: "IDs & Identity", icon: "🪪", color: "#facc15" },
+  immigration: { label: "Immigration & Status", icon: "🛂", color: "#38bdf8" },
+  legal: { label: "Legal Documents", icon: "⚖️", color: "#f97316" },
+  tax: { label: "Tax Returns", icon: "📄", color: "#22c55e" },
+  payment: { label: "Finance & Payments", icon: "💳", color: "#6366f1" },
+  housing: { label: "Housing / Lease", icon: "🏠", color: "#a855f7" },
+  vehicles: { label: "Vehicles & Driving", icon: "🚗", color: "#0ea5e9" },
+  health: { label: "Health & Medical", icon: "🩺", color: "#10b981" },
+  work: { label: "Work & Employment", icon: "💼", color: "#eab308" },
+  education: {
+    label: "Education & Certificates",
+    icon: "🎓",
+    color: "#ec4899",
+  },
+  business: { label: "Business & LLC", icon: "📑", color: "#22c55e" },
+  membership: { label: "Memberships & Cards", icon: "🎫", color: "#f97316" },
+  receipts: { label: "Receipts & Warranty", icon: "🧾", color: "#f59e0b" },
+  photos: { label: "Photos & Albums", icon: "📷", color: "#ec4899" },
 
   // ဟောင်း data-compatible key: applications
-  applications: { label: "Applications & Forms",  icon: "🗂️", color: "#3b82f6" },
+  applications: { label: "Applications & Forms", icon: "🗂️", color: "#3b82f6" },
 
-  other:      { label: "Other",                   icon: "📁", color: "#9ca3af" },
+  other: { label: "Other", icon: "📁", color: "#9ca3af" },
 };
 
 // ===== STATE =====
@@ -34,6 +48,7 @@ let tokenClient;
 let gapiInited = false;
 let gisInited = false;
 let accessToken = null;
+let currentUserEmail = null;
 
 let vaultFolderId = null;
 let metadataFileId = null;
@@ -82,6 +97,20 @@ const editStatus = document.getElementById("edit-status");
 const themeSelect = document.getElementById("theme-select");
 const fontSelect = document.getElementById("font-select");
 
+function showToast(msg) {
+  const t = document.getElementById("welcome-toast");
+  if (!t) return;
+  t.textContent = msg;
+  t.classList.remove("hidden");
+}
+
+function metaCacheKey() {
+  if (currentUserEmail) {
+    return "myvault_meta_cache_" + currentUserEmail.toLowerCase();
+  }
+  return "myvault_meta_cache_anon";
+}
+
 function getCategoryConf(key) {
   return CATEGORY_CONFIG[key] || CATEGORY_CONFIG.other;
 }
@@ -102,9 +131,21 @@ if (btnDatePicker && fileDateInput) {
   });
 }
 
+async function fetchUserInfo() {
+  if (!accessToken) throw new Error("No access token");
+  const resp = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+    headers: { Authorization: "Bearer " + accessToken },
+  });
+  if (!resp.ok) {
+    const t = await resp.text().catch(() => "");
+    throw new Error("Userinfo failed: " + t.slice(0, 200));
+  }
+  return resp.json();
+}
+
 // ----- Simple tab switching (Dashboard / Upload / Help / Dev ...) -----
 const tabButtons = document.querySelectorAll(".tab-btn[data-tab]");
-const tabPanels  = document.querySelectorAll(".tab-panel");
+const tabPanels = document.querySelectorAll(".tab-panel");
 
 function switchTab(name) {
   tabPanels.forEach((panel) => {
@@ -155,22 +196,55 @@ fontSelect.addEventListener("change", () => {
 function gapiLoaded() {
   gapi.load("client", initGapiClient);
 }
+
 function gisLoaded() {
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID,
     scope: SCOPES,
-    callback: (resp) => {
+    callback: async (resp) => {
       if (resp.error) {
         console.error(resp);
         return;
       }
       accessToken = resp.access_token;
-      onSignedIn();
+
+      // 🔐 Drive SDK ကို လက်ရှိ token နဲ့ sync
+      syncGapiToken();
+
+      try {
+        const info = await fetchUserInfo();
+        const email = (info.email || "").toLowerCase();
+
+        // 🌟 allowlist စစ်
+        if (!ALLOWED_USERS.map((e) => e.toLowerCase()).includes(email)) {
+          alert("This MyVault is private. Your account is not allowed.");
+          // token revoke + UI reset
+          try {
+            google.accounts.oauth2.revoke(accessToken, () => {
+              console.log("Access revoked for", email);
+            });
+          } catch {}
+          accessToken = null;
+          toggleAuthButtons(false);
+          return;
+        }
+
+        // ✅ allow ဖြစ်ရင်
+        currentUserEmail = email;
+        console.log("Signed in as", email);
+        await onSignedIn();
+      } catch (e) {
+        console.error("Sign-in allowlist check failed", e);
+        alert("Sign-in failed. Please contact admin.");
+        accessToken = null;
+        toggleAuthButtons(false);
+      }
     },
   });
   gisInited = true;
   maybeEnableSignin();
 }
+
 async function initGapiClient() {
   try {
     await gapi.client.init({
@@ -185,6 +259,7 @@ async function initGapiClient() {
     console.error("gapi init error", e);
   }
 }
+
 function maybeEnableSignin() {
   if (gapiInited && gisInited) {
     btnSignin.disabled = false;
@@ -192,7 +267,10 @@ function maybeEnableSignin() {
     // Try silent sign-in if the user has already granted access before.
     if (tokenClient) {
       try {
-        tokenClient.requestAccessToken({ prompt: "" });
+        tokenClient.requestAccessToken({
+          prompt: "",
+          scope: SCOPES, // ✅ ဘယ်အချိန် request လုပ်လာလာ scope ပြည့်ဖြစ်အောင်
+        });
       } catch (e) {
         console.warn("Silent sign-in failed (this is ok on first use)", e);
       }
@@ -203,23 +281,54 @@ function maybeEnableSignin() {
 // ===== AUTH =====
 btnSignin.addEventListener("click", () => {
   if (!tokenClient) return;
-  tokenClient.requestAccessToken({ prompt: "consent" });
+  tokenClient.requestAccessToken({
+    prompt: "consent",
+    scope: SCOPES, // ✅ Drive + userinfo scope အပြည့်နဲ့ တဖန်တလဲတောင်း
+  });
 });
 
 btnSignout.addEventListener("click", () => {
   if (!accessToken) return;
   google.accounts.oauth2.revoke(accessToken, () => {
     accessToken = null;
+    currentUserEmail = null;
     vaultFolderId = null;
     metadataFileId = null;
     metadata = [];
     activities = [];
+
+    // 🔄 Drive SDK token ကိုလည်း reset လုပ်
+    try {
+      if (window.gapi && gapi.client) {
+        gapi.client.setToken(null);
+      }
+    } catch (e) {
+      console.warn("Failed to clear gapi token", e);
+    }
+
+    const t = document.getElementById("welcome-toast");
+    if (t) {
+      t.textContent = "";
+      t.classList.add("hidden");
+      t.classList.remove("show");
+    }
+
     renderVaultList();
     renderActivity();
     renderDashboard();
     toggleAuthButtons(false);
   });
 });
+
+function syncGapiToken() {
+  try {
+    if (window.gapi && gapi.client && accessToken) {
+      gapi.client.setToken({ access_token: accessToken });
+    }
+  } catch (e) {
+    console.warn("Failed to sync gapi token", e);
+  }
+}
 
 function toggleAuthButtons(loggedIn) {
   if (loggedIn) {
@@ -232,9 +341,12 @@ function toggleAuthButtons(loggedIn) {
 }
 
 async function onSignedIn() {
+  syncGapiToken();
+
   toggleAuthButtons(true);
   uploadStatus.textContent = "";
   uploadStatus.className = "status";
+
   try {
     await ensureVaultFolder();
     await ensureMetadataFile();
@@ -243,8 +355,33 @@ async function onSignedIn() {
     renderActivity();
     renderDashboard();
     addActivity("login", "Signed in & vault loaded");
+
+    // ✅ Login & vault အောင်မြင်ပြီးမှ Welcome ပြပါ
+    if (currentUserEmail) {
+      showToast(`Welcome back, ${currentUserEmail}!`);
+    } else {
+      showToast("Welcome back to MyVault!");
+    }
   } catch (e) {
     console.error(e);
+
+    // 🔁 Drive error ဖြစ်သွားရင် local cache ကို fallback လုပ်မယ်
+    try {
+      const cache = localStorage.getItem(metaCacheKey());
+      if (cache) {
+        const arr = JSON.parse(cache);
+        if (Array.isArray(arr)) {
+          metadata = arr;
+          renderVaultList();
+          renderActivity();
+          renderDashboard();
+          addActivity("login", "Loaded from local cache (Drive error)");
+        }
+      }
+    } catch (err2) {
+      console.warn("Failed to restore metadata from cache after error", err2);
+    }
+
     uploadStatus.textContent = "Error initializing vault.";
     uploadStatus.classList.add("err");
   }
@@ -267,50 +404,116 @@ function authHeaders() {
   return { Authorization: "Bearer " + accessToken };
 }
 
+function folderCacheKey() {
+  if (currentUserEmail) {
+    return "myvault_folder_" + currentUserEmail.toLowerCase();
+  }
+  return "myvault_folder_anon";
+}
+
+function metaIdCacheKey() {
+  if (currentUserEmail) {
+    return "myvault_meta_id_" + currentUserEmail.toLowerCase();
+  }
+  return "myvault_meta_id_anon";
+}
+
 async function ensureVaultFolder() {
+  // 1) memory ထဲမှာ ရှိရင် direct use
+  if (vaultFolderId) {
+    devLog && devLog("Using in-memory vaultFolderId:", vaultFolderId);
+    return;
+  }
+
+  // 2) localStorage (per-user) ထဲမှာရှိရင် အရင်မြှောက်
+  const cachedId = localStorage.getItem(folderCacheKey());
+  if (cachedId) {
+    vaultFolderId = cachedId;
+    devLog && devLog("Using cached vaultFolderId:", vaultFolderId);
+    return;
+  }
+
+  // 3) Drive ထဲမှ MyVault folder ရှာမယ်
   const q = `name = '${VAULT_FOLDER_NAME}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
   const res = await gapi.client.drive.files.list({
     q,
-    fields: "files(id,name)",
+    fields: "files(id,name,createdTime)",
   });
+
   if (res.result.files?.length) {
+    // အခုအတွက် အဆင်ပြေသလို newest ကိုယူမယ် (first) — later လိုရင် sort ပြန်ရေးလို့ရ
     vaultFolderId = res.result.files[0].id;
-    return;
+  } else {
+    // 4) မရှိသေးရင် အသစ်ဖန်တီးမယ်
+    const createRes = await gapi.client.drive.files.create({
+      resource: {
+        name: VAULT_FOLDER_NAME,
+        mimeType: "application/vnd.google-apps.folder",
+      },
+      fields: "id",
+    });
+    vaultFolderId = createRes.result.id;
   }
-  const createRes = await gapi.client.drive.files.create({
-    resource: {
-      name: VAULT_FOLDER_NAME,
-      mimeType: "application/vnd.google-apps.folder",
-    },
-    fields: "id",
-  });
-  vaultFolderId = createRes.result.id;
+
+  // 5) per-user cache ထဲသိမ်း
+  try {
+    localStorage.setItem(folderCacheKey(), vaultFolderId);
+  } catch (e) {
+    console.warn("Failed to cache vaultFolderId", e);
+  }
 }
 
 async function ensureMetadataFile() {
+  // 1) memory ထဲရှိရင်
+  if (metadataFileId) {
+    devLog && devLog("Using in-memory metadataFileId:", metadataFileId);
+    return;
+  }
+
+  // 2) localStorage (per-user) ထဲမှာရှိရင် အရင်အသုံးချ
+  const cachedMetaId = localStorage.getItem(metaIdCacheKey());
+  if (cachedMetaId) {
+    metadataFileId = cachedMetaId;
+    devLog && devLog("Using cached metadataFileId:", metadataFileId);
+    return;
+  }
+
+  // 3) Drive ထဲက vaultFolderId အောက်မှာ vault_meta.json ရှာမယ်
   const q = `'${vaultFolderId}' in parents and name = '${META_FILE_NAME}' and trashed = false`;
   const res = await gapi.client.drive.files.list({
     q,
-    fields: "files(id,name)",
+    fields: "files(id,name,modifiedTime)",
   });
+
   if (res.result.files?.length) {
+    // ရှိနေခဲ့တဲ့ meta file ကိုသုံးမယ်
     metadataFileId = res.result.files[0].id;
-    return;
+  } else {
+    // 4) မရှိရင် သုည array နဲ့အသစ်ဖန်တီးမယ်
+    const initBlob = new Blob([JSON.stringify([])], {
+      type: "application/json",
+    });
+    const body = buildMultipartBody(
+      { name: META_FILE_NAME, parents: [vaultFolderId] },
+      initBlob,
+      "application/json"
+    );
+    const fileRes = await gapi.client.request({
+      path: "/upload/drive/v3/files",
+      method: "POST",
+      params: { uploadType: "multipart", fields: "id" },
+      headers: authHeaders(),
+      body,
+    });
+    metadataFileId = fileRes.result.id;
   }
-  const initBlob = new Blob([JSON.stringify([])], { type: "application/json" });
-  const body = buildMultipartBody(
-    { name: META_FILE_NAME, parents: [vaultFolderId] },
-    initBlob,
-    "application/json"
-  );
-  const fileRes = await gapi.client.request({
-    path: "/upload/drive/v3/files",
-    method: "POST",
-    params: { uploadType: "multipart", fields: "id" },
-    headers: authHeaders(),
-    body,
-  });
-  metadataFileId = fileRes.result.id;
+
+  // 5) per-user meta id cache ထဲသိမ်း
+  try {
+    localStorage.setItem(metaIdCacheKey(), metadataFileId);
+  } catch (e) {
+    console.warn("Failed to cache metadataFileId", e);
+  }
 }
 
 async function loadMetadata() {
@@ -318,35 +521,37 @@ async function loadMetadata() {
     metadata = [];
     return;
   }
-
   try {
     const resp = await fetch(
-      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(metadataFileId)}?alt=media`,
+      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
+        metadataFileId
+      )}?alt=media`,
       { headers: authHeaders() }
     );
-
     if (!resp.ok) {
       const text = await resp.text().catch(() => "");
-      throw new Error(`loadMetadata failed ${resp.status}: ${text.slice(0, 200)}`);
+      throw new Error(
+        `loadMetadata failed ${resp.status}: ${text.slice(0, 200)}`
+      );
     }
-
     const txt = await resp.text();
     const arr = JSON.parse(txt);
-
     if (Array.isArray(arr)) {
       metadata = arr;
-      // cache locally so refresh still works even if Drive hiccups
-      localStorage.setItem("myvault_meta_cache", JSON.stringify(arr));
+      // ✅ cache is now per-user
+      localStorage.setItem(metaCacheKey(), JSON.stringify(arr));
     } else {
-      console.warn("metadata JSON is not an array; keeping existing metadata in memory");
+      console.warn(
+        "metadata JSON is not an array; keeping existing metadata in memory"
+      );
     }
   } catch (e) {
     console.error("loadMetadata error; falling back to local cache if any", e);
-    const cache = localStorage.getItem("myvault_meta_cache");
+    const cache = localStorage.getItem(metaCacheKey());
     if (cache) {
       try {
         metadata = JSON.parse(cache) || [];
-      } catch (err) {
+      } catch {
         if (!Array.isArray(metadata)) metadata = [];
       }
     } else {
@@ -361,7 +566,9 @@ async function saveMetadata() {
   const json = JSON.stringify(metadata, null, 2);
 
   const resp = await fetch(
-    `https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(metadataFileId)}?uploadType=media`,
+    `https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(
+      metadataFileId
+    )}?uploadType=media`,
     {
       method: "PATCH",
       headers: {
@@ -374,21 +581,39 @@ async function saveMetadata() {
 
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
-    throw new Error(`saveMetadata failed ${resp.status}: ${text.slice(0, 200)}`);
+    throw new Error(
+      `saveMetadata failed ${resp.status}: ${text.slice(0, 200)}`
+    );
   }
 
   // cache locally too
   try {
-    localStorage.setItem("myvault_meta_cache", JSON.stringify(metadata));
+    localStorage.setItem(metaCacheKey(), JSON.stringify(metadata));
   } catch (e) {
     console.warn("Failed to cache metadata locally", e);
   }
 }
 
-// Prime metadata & UI from local cache (so refresh doesn't look empty)
+function handleSignOut() {
+  accessToken = null;
+  currentUserEmail = null;
+  metadata = [];
+  metadataFileId = null;
+  vaultFolderId = null;
+
+  renderVaultList();
+  renderDashboard();
+  renderActivity();
+  toggleAuthButtons(false);
+}
+
+// Prime metadata & UI from local cache (per-user cache only)
 (function primeMetadataFromCache() {
   try {
-    const cache = localStorage.getItem("myvault_meta_cache");
+    // ❗ ဟောင်း shared cache key ကို once ရှင်းထားမယ် (user1 → user2 leak မဖြစ်အောင်)
+    localStorage.removeItem("myvault_meta_cache");
+
+    const cache = localStorage.getItem(metaCacheKey());
     if (!cache) return;
     const arr = JSON.parse(cache);
     if (Array.isArray(arr)) {
@@ -429,7 +654,9 @@ async function uploadEncryptedFileToVault(encryptedBlob, originalName) {
 
   // 2) upload binary content via media upload (fetch)
   const resp = await fetch(
-    `https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(fileId)}?uploadType=media`,
+    `https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(
+      fileId
+    )}?uploadType=media`,
     {
       method: "PATCH",
       headers: {
@@ -441,19 +668,21 @@ async function uploadEncryptedFileToVault(encryptedBlob, originalName) {
   );
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
-    throw new Error(`Media upload failed ${resp.status}: ${text.slice(0, 200)}`);
+    throw new Error(
+      `Media upload failed ${resp.status}: ${text.slice(0, 200)}`
+    );
   }
   return fileId;
 }
 
 async function downloadFileBlob(fileId) {
-async function getRemoteFileMeta(fileId) {
-  const res = await gapi.client.drive.files.get({
-    fileId,
-    fields: "id,name,size,mimeType,md5Checksum",
-  });
-  return res.result;
-}
+  async function getRemoteFileMeta(fileId) {
+    const res = await gapi.client.drive.files.get({
+      fileId,
+      fields: "id,name,size,mimeType,md5Checksum",
+    });
+    return res.result;
+  }
 
   const url = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
     fileId
@@ -811,7 +1040,9 @@ async function handleDelete(entry) {
     // file မတွေ့ရင် (404) ကိုလည်း OK လို ခတ်ပေးလိုက်တယ်
     if (!resp.ok && resp.status !== 404) {
       const text = await resp.text().catch(() => "");
-      throw new Error(`Drive delete failed ${resp.status}: ${text.slice(0, 200)}`);
+      throw new Error(
+        `Drive delete failed ${resp.status}: ${text.slice(0, 200)}`
+      );
     }
 
     // 2) metadata ထဲက entry ကို ဖျက်မယ်
@@ -1128,13 +1359,16 @@ async function changeVaultPassword(oldPw, newPw) {
       const plain = await decryptBlobWithPassword(encBlob, oldPw, m.iv, m.salt);
 
       // 3) encrypt with NEW password
-      const { blob: newEnc, iv: newIv, salt: newSalt } =
-        await encryptFileWithPassword(
-          new File([plain], m.originalName, {
-            type: m.mimeType || "application/octet-stream",
-          }),
-          newPw
-        );
+      const {
+        blob: newEnc,
+        iv: newIv,
+        salt: newSalt,
+      } = await encryptFileWithPassword(
+        new File([plain], m.originalName, {
+          type: m.mimeType || "application/octet-stream",
+        }),
+        newPw
+      );
 
       // 4) replace Drive file content via media upload
       const resp = await fetch(
@@ -1174,11 +1408,7 @@ async function changeVaultPassword(oldPw, newPw) {
       m.salt = newSalt;
       ok++;
     } catch (err) {
-      console.error(
-        "re-encrypt failed for",
-        m.title || m.originalName,
-        err
-      );
+      console.error("re-encrypt failed for", m.title || m.originalName, err);
       fail++;
     }
   }
@@ -1418,8 +1648,8 @@ function devLog(...args) {
 }
 
 const devDebugToggle = document.getElementById("dev-debug-toggle");
-const devMetaArea    = document.getElementById("dev-meta-json");
-const devCacheArea   = document.getElementById("dev-cache-json");
+const devMetaArea = document.getElementById("dev-meta-json");
+const devCacheArea = document.getElementById("dev-cache-json");
 
 if (devDebugToggle) {
   devDebugToggle.addEventListener("change", (e) => {
@@ -1434,13 +1664,14 @@ function refreshDevMetadataView() {
   try {
     devMetaArea.value = JSON.stringify(metadata || [], null, 2);
   } catch (err) {
-    devMetaArea.value = "Error while stringifying metadata: " + (err.message || err);
+    devMetaArea.value =
+      "Error while stringifying metadata: " + (err.message || err);
   }
 }
 
 // Dev buttons
-const btnDumpMeta   = document.getElementById("dev-btn-dump-meta");
-const btnDumpCache  = document.getElementById("dev-btn-dump-cache");
+const btnDumpMeta = document.getElementById("dev-btn-dump-meta");
+const btnDumpCache = document.getElementById("dev-btn-dump-cache");
 const btnReloadMeta = document.getElementById("dev-btn-reload-meta");
 const btnClearCache = document.getElementById("dev-btn-clear-cache");
 
@@ -1493,7 +1724,7 @@ const footerBtns = document.querySelectorAll(".footer-btn");
 
 footerBtns.forEach((btn) => {
   btn.addEventListener("click", () => {
-    const tab = btn.dataset.tab;       // "help" or "dev"
+    const tab = btn.dataset.tab; // "help" or "dev"
     showDrawer(tab);
   });
 });
@@ -1564,10 +1795,8 @@ btnChangePw?.addEventListener("click", async () => {
     settingsStatus.textContent = "Re-encrypting all files...";
     const result = await changeVaultPassword(oldPw, newPw);
 
-    settingsStatus.textContent =
-      `Done: ${result.ok} success / ${result.fail} failed (Total: ${result.total})`;
+    settingsStatus.textContent = `Done: ${result.ok} success / ${result.fail} failed (Total: ${result.total})`;
     settingsStatus.classList.add("ok");
-
   } catch (err) {
     console.error(err);
     settingsStatus.textContent = err.message || err;

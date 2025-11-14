@@ -17,34 +17,38 @@
     <div class="app-shell">
       <!-- HEADER -->
       <header class="app-header">
-        <div class="logo">
-          <div class="logo-circle">🔐</div>
-          <div>
-            <h1>MyVault</h1>
-            <p>Personal Secure Archive in your own Google Drive</p>
+        <div class="header-main">
+          <div class="logo">
+            <div class="logo-circle">🔐</div>
+            <div>
+              <h1>MyVault</h1>
+              <p>Personal Secure Archive in your own Google Drive</p>
+            </div>
           </div>
-        </div>
-        <div class="header-actions">
-          <div class="settings-inline">
-            <select id="theme-select">
-              <option value="dark">Dark</option>
-              <option value="light">Light</option>
-              <option value="amoled">AMOLED</option>
-              <option value="sepia">Sepia</option>
-              <option value="ocean">Ocean</option>
-            </select>
-            <select id="font-select">
-              <option value="sm">A-</option>
-              <option value="md" selected>A</option>
-              <option value="lg">A+</option>
-            </select>
-          </div>
+          <div class="header-actions">
+            <div class="settings-inline">
+              <select id="theme-select">
+                <option value="dark">Dark</option>
+                <option value="light">Light</option>
+                <option value="amoled">AMOLED</option>
+                <option value="sepia">Sepia</option>
+                <option value="ocean">Ocean</option>
+              </select>
+              <select id="font-select">
+                <option value="sm">A-</option>
+                <option value="md" selected>A</option>
+                <option value="lg">A+</option>
+              </select>
+            </div>
 
-          <button id="btn-signin" class="btn primary" disabled>
-            Sign in with Google
-          </button>
-          <button id="btn-signout" class="btn ghost hidden">Sign Out</button>
+            <button id="btn-signin" class="btn primary" disabled>
+              Sign in with Google
+            </button>
+            <button id="btn-signout" class="btn ghost hidden">Sign Out</button>
+          </div>
         </div>
+        <!-- ⭐ ဒီမှာ Welcome message row သီးသန့် -->
+        <div id="welcome-toast" class="welcome-banner hidden"></div>
       </header>
 
       <!-- DASHBOARD CARDS -->
