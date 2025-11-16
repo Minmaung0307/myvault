@@ -12,10 +12,13 @@ const VAULT_FOLDER_NAME = "MyVault";
 const ALLOWED_USERS = [
   "honeymoe093@gmail.com",
   "minmaung0307@gmail.com",
-  "user3@gmail.com",
+  "panna07@gmail.com",
+  "sue@randevoz.com",
   // ...
   "user15@gmail.com",
 ];
+
+const USER_META_OVERRIDE = {};
 
 const CATEGORY_CONFIG = {
   ids: { label: "IDs & Identity", icon: "🪪", color: "#facc15" },
@@ -92,6 +95,9 @@ const editAlbum = document.getElementById("edit-album");
 const editTags = document.getElementById("edit-tags");
 const editDate = document.getElementById("edit-date");
 const editStatus = document.getElementById("edit-status");
+
+const btnExportMeta = document.getElementById("btn-export-meta");
+const inputImportMeta = document.getElementById("input-import-meta");
 
 // Theme / font
 const themeSelect = document.getElementById("theme-select");
@@ -358,7 +364,7 @@ async function onSignedIn() {
 
     // ✅ Login & vault အောင်မြင်ပြီးမှ Welcome ပြပါ
     if (currentUserEmail) {
-      showToast(`Welcome back, ${currentUserEmail}!`);
+      showToast(`You're welcome, ${currentUserEmail}!`);
     } else {
       showToast("Welcome back to MyVault!");
     }
@@ -425,7 +431,7 @@ async function ensureVaultFolder() {
     return;
   }
 
-  // 2) localStorage (per-user) ထဲမှာရှိရင် အရင်မြှောက်
+  // 2) localStorage (per-user) ထဲမှာရှိရင် အရင်အသုံးချ
   const cachedId = localStorage.getItem(folderCacheKey());
   if (cachedId) {
     vaultFolderId = cachedId;
@@ -433,29 +439,53 @@ async function ensureVaultFolder() {
     return;
   }
 
-  // 3) Drive ထဲမှ MyVault folder ရှာမယ်
-  const q = `name = '${VAULT_FOLDER_NAME}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+  // 3) Drive ထဲက MyVault / My Vault folders အားလုံးရှာမယ်
+  const q = `(name = 'MyVault' or name = 'My Vault') and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
   const res = await gapi.client.drive.files.list({
     q,
     fields: "files(id,name,createdTime)",
   });
 
-  if (res.result.files?.length) {
-    // အခုအတွက် အဆင်ပြေသလို newest ကိုယူမယ် (first) — later လိုရင် sort ပြန်ရေးလို့ရ
-    vaultFolderId = res.result.files[0].id;
-  } else {
-    // 4) မရှိသေးရင် အသစ်ဖန်တီးမယ်
+  const folders = res.result.files || [];
+
+  // 3a) လုံးဝ folder မရှိရင် အသစ်တစ်ခု ဖန်တီး
+  if (!folders.length) {
     const createRes = await gapi.client.drive.files.create({
       resource: {
-        name: VAULT_FOLDER_NAME,
+        name: VAULT_FOLDER_NAME, // "MyVault"
         mimeType: "application/vnd.google-apps.folder",
       },
       fields: "id",
     });
     vaultFolderId = createRes.result.id;
+  } else if (folders.length === 1) {
+    // 3b) တစ်ခုတည်းရှိရင် အဲဒီဟာနဲ့ ဆက်သုံး
+    vaultFolderId = folders[0].id;
+  } else {
+    // 3c) နှစ်ခုကျော်ရှိရင် — vault_meta.json ပါတဲ့ folder ကို ဦးစားပေးရွေး
+    let chosen = null;
+
+    for (const f of folders) {
+      try {
+        const metaRes = await gapi.client.drive.files.list({
+          q: `'${f.id}' in parents and name = '${META_FILE_NAME}' and trashed = false`,
+          fields: "files(id,name,modifiedTime)",
+        });
+        if (metaRes.result.files && metaRes.result.files.length) {
+          chosen = f;
+          devLog && devLog("Found folder with existing metadata:", f.id, f.name);
+          break;
+        }
+      } catch (e) {
+        console.warn("Error checking meta in folder", f.id, e);
+      }
+    }
+
+    // meta ပါတဲ့ folder မတွေ့ရင် fallback = ပထမတစ်ခု
+    vaultFolderId = (chosen || folders[0]).id;
   }
 
-  // 5) per-user cache ထဲသိမ်း
+  // 4) per-user cache ထဲသိမ်း
   try {
     localStorage.setItem(folderCacheKey(), vaultFolderId);
   } catch (e) {
@@ -464,53 +494,87 @@ async function ensureVaultFolder() {
 }
 
 async function ensureMetadataFile() {
-  // 1) memory ထဲရှိရင်
-  if (metadataFileId) {
-    devLog && devLog("Using in-memory metadataFileId:", metadataFileId);
-    return;
+  // 1) memory ထဲမှာရှိရင် မလုပ်တော့
+  if (metadataFileId) return;
+
+  // 2) cache ထဲက id ရှိရင် တကယ်ရှိ/မရှိ စစ်မယ်
+  const cachedId = localStorage.getItem("myvault_meta_id");
+  if (cachedId) {
+    try {
+      const check = await gapi.client.drive.files.get({
+        fileId: cachedId,
+        fields: "id, trashed",
+      });
+      if (check.result && check.result.id && !check.result.trashed) {
+        metadataFileId = check.result.id;
+        return;
+      }
+    } catch (e) {
+      console.warn("Cached metadataFileId not valid, will recreate:", e);
+    }
   }
 
-  // 2) localStorage (per-user) ထဲမှာရှိရင် အရင်အသုံးချ
-  const cachedMetaId = localStorage.getItem(metaIdCacheKey());
-  if (cachedMetaId) {
-    metadataFileId = cachedMetaId;
-    devLog && devLog("Using cached metadataFileId:", metadataFileId);
-    return;
+  // 3) MyVault folder id မရှိသေးရင် အရင်သေချာလုပ်
+  if (!vaultFolderId) {
+    await ensureVaultFolder();
   }
 
-  // 3) Drive ထဲက vaultFolderId အောက်မှာ vault_meta.json ရှာမယ်
-  const q = `'${vaultFolderId}' in parents and name = '${META_FILE_NAME}' and trashed = false`;
-  const res = await gapi.client.drive.files.list({
-    q,
-    fields: "files(id,name,modifiedTime)",
+  // 4) MyVault folder အောက်မှာ vault_meta.json ရှိ/မရှိ စစ်မယ်
+  const listRes = await gapi.client.drive.files.list({
+    q: `'${vaultFolderId}' in parents and name = '${META_FILE_NAME}' and trashed = false`,
+    fields: "files(id,name,modifiedTime,size)",
+    pageSize: 1,
   });
 
-  if (res.result.files?.length) {
-    // ရှိနေခဲ့တဲ့ meta file ကိုသုံးမယ်
-    metadataFileId = res.result.files[0].id;
+  if (listRes.result.files && listRes.result.files.length > 0) {
+    // ရှိနေတဲ့ meta ကိုသုံး
+    metadataFileId = listRes.result.files[0].id;
   } else {
-    // 4) မရှိရင် သုည array နဲ့အသစ်ဖန်တီးမယ်
-    const initBlob = new Blob([JSON.stringify([])], {
-      type: "application/json",
+    // 5) မရှိရင် MyVault folder ထဲမှာအသစ်ဖန်တီး
+    const createRes = await gapi.client.drive.files.create({
+      resource: {
+        name: META_FILE_NAME,
+        parents: [vaultFolderId],
+        mimeType: "application/json",
+      },
+      fields: "id",
     });
-    const body = buildMultipartBody(
-      { name: META_FILE_NAME, parents: [vaultFolderId] },
-      initBlob,
-      "application/json"
+    metadataFileId = createRes.result.id;
+
+    // 6) ပထမဆုံး data = [] ကို Drive ထဲ media upload နဲ့ထည့်
+    const initResp = await fetch(
+      `https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(
+        metadataFileId
+      )}?uploadType=media`,
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: "Bearer " + accessToken,
+          "Content-Type": "application/json; charset=UTF-8",
+        },
+        body: JSON.stringify([]),
+      }
     );
-    const fileRes = await gapi.client.request({
-      path: "/upload/drive/v3/files",
-      method: "POST",
-      params: { uploadType: "multipart", fields: "id" },
-      headers: authHeaders(),
-      body,
-    });
-    metadataFileId = fileRes.result.id;
+
+    if (!initResp.ok) {
+      const text = await initResp.text().catch(() => "");
+      console.error(
+        "init vault_meta.json failed",
+        initResp.status,
+        text.slice(0, 200)
+      );
+      throw new Error(
+        `init vault_meta.json failed ${initResp.status}: ${text.slice(
+          0,
+          200
+        )}`
+      );
+    }
   }
 
-  // 5) per-user meta id cache ထဲသိမ်း
+  // 7) cache ထဲမှာ meta id သိမ်း
   try {
-    localStorage.setItem(metaIdCacheKey(), metadataFileId);
+    localStorage.setItem("myvault_meta_id", metadataFileId);
   } catch (e) {
     console.warn("Failed to cache metadataFileId", e);
   }
@@ -561,7 +625,21 @@ async function loadMetadata() {
 }
 
 async function saveMetadata() {
-  if (!metadataFileId) return;
+  if (!accessToken) {
+    console.warn("saveMetadata: no accessToken, skipping Drive write.");
+    return;
+  }
+
+  // meta file id မရှိရင် အရင်သေချာရှာ/ဖန်တီး
+  if (!metadataFileId) {
+    await ensureMetadataFile();
+  }
+  if (!metadataFileId) {
+    console.error(
+      "saveMetadata: still no metadataFileId after ensureMetadataFile"
+    );
+    return;
+  }
 
   const json = JSON.stringify(metadata, null, 2);
 
@@ -581,14 +659,19 @@ async function saveMetadata() {
 
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
+    console.error(
+      "saveMetadata Drive upload failed",
+      resp.status,
+      text.slice(0, 200)
+    );
     throw new Error(
       `saveMetadata failed ${resp.status}: ${text.slice(0, 200)}`
     );
   }
 
-  // cache locally too
+  // local cache လည်း အနည်းငယ်သိမ်းထားလိုက်မယ် (optional)
   try {
-    localStorage.setItem(metaCacheKey(), JSON.stringify(metadata));
+    localStorage.setItem("myvault_meta_cache", json);
   } catch (e) {
     console.warn("Failed to cache metadata locally", e);
   }
@@ -807,15 +890,26 @@ uploadForm.addEventListener("submit", async (e) => {
     return;
   }
 
-  const fileEl = document.getElementById("file-input");
-  const file = fileEl.files[0];
-  if (!file) {
-    uploadStatus.textContent = "Select a file.";
+  // 🔐 Vault folder + metadata file init (VERY IMPORTANT)
+  try {
+    await ensureVaultFolder();
+    await ensureMetadataFile();
+  } catch (err) {
+    console.error("Vault init failed in upload handler", err);
+    uploadStatus.textContent = "Vault init failed. Try sign out & sign in again.";
     uploadStatus.classList.add("err");
     return;
   }
 
-  const title = document.getElementById("file-title").value.trim() || file.name;
+  const fileEl = document.getElementById("file-input");
+  const files = Array.from(fileEl.files || []);
+  if (!files.length) {
+    uploadStatus.textContent = "Select at least one file.";
+    uploadStatus.classList.add("err");
+    return;
+  }
+
+  const titleInput = document.getElementById("file-title").value.trim();
   const category = document.getElementById("file-category").value || "other";
   const tagsRaw = document.getElementById("file-tags").value.trim();
   const date = document.getElementById("file-date").value || null;
@@ -827,44 +921,63 @@ uploadForm.addEventListener("submit", async (e) => {
         .filter(Boolean)
     : [];
 
+  let ok = 0;
+  let fail = 0;
+
+  for (const file of files) {
+    try {
+      uploadStatus.textContent = `Encrypting: ${file.name}...`;
+
+      const { blob, iv, salt } = await encryptFileWithPassword(file, password);
+
+      uploadStatus.textContent = `Uploading: ${file.name}...`;
+      const fileId = await uploadEncryptedFileToVault(blob, file.name);
+
+      const createdAt = new Date().toISOString();
+      const entry = {
+        id: fileId,
+        title: titleInput || file.name, // title ထည့်ထားရင် shared title, မထည့်ရင် ဖိုင်နာမည်
+        category,
+        tags,
+        album,
+        date,
+        originalName: file.name,
+        size: file.size,
+        mimeType: file.type,
+        iv,
+        salt,
+        createdAt,
+        logs: [{ type: "upload", ts: createdAt }],
+      };
+
+      // ✅ ဖိုင်တစ်ခုချင်းစီ metadata ထဲ push
+      metadata.push(entry);
+      ok++;
+    } catch (err) {
+      console.error("Upload failed for", file.name, err);
+      fail++;
+    }
+  }
+
+  // ✅ loop ပြီးမှ metadata ကို တစ်ခါတည်း Drive မှာ save
   try {
-    uploadStatus.textContent = "Encrypting file...";
-    const { blob, iv, salt } = await encryptFileWithPassword(file, password);
-
-    uploadStatus.textContent = "Uploading to Google Drive...";
-    const fileId = await uploadEncryptedFileToVault(blob, file.name);
-
-    const createdAt = new Date().toISOString();
-    const entry = {
-      id: fileId,
-      title,
-      category,
-      tags,
-      album,
-      date,
-      originalName: file.name,
-      size: file.size,
-      mimeType: file.type,
-      iv,
-      salt,
-      createdAt,
-      logs: [{ type: "upload", ts: createdAt }],
-    };
-    metadata.push(entry);
     await saveMetadata();
-
-    uploadStatus.textContent = "Uploaded & saved securely.";
-    uploadStatus.classList.add("ok");
-    fileEl.value = "";
-    renderVaultList();
-    renderDashboard();
-    addActivity("upload", title);
-    renderActivity();
   } catch (err) {
-    console.error(err);
-    uploadStatus.textContent = "Upload failed.";
+    console.error("saveMetadata failed after multi-upload", err);
+  }
+
+  uploadStatus.textContent = `Done: ${ok} uploaded, ${fail} failed.`;
+  if (ok > 0 && fail === 0) {
+    uploadStatus.classList.add("ok");
+  } else if (fail > 0) {
     uploadStatus.classList.add("err");
   }
+
+  fileEl.value = "";
+  renderVaultList();
+  renderDashboard();
+  addActivity("upload", `${ok} file(s)`);
+  renderActivity();
 });
 
 // ===== LIST & SEARCH =====
@@ -1803,3 +1916,69 @@ btnChangePw?.addEventListener("click", async () => {
     settingsStatus.classList.add("err");
   }
 });
+
+// ========= Export Vault Metadata (Desktop → JSON file) =========
+if (btnExportMeta) {
+  btnExportMeta.addEventListener("click", () => {
+    if (!metadata || !Array.isArray(metadata) || !metadata.length) {
+      alert("No metadata to export. Upload something first on this device.");
+      return;
+    }
+    const email = (currentUserEmail || "myvault").replace(/[^a-z0-9@._-]/gi, "");
+    const pretty = JSON.stringify(metadata, null, 2);
+    const blob = new Blob([pretty], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `vault_meta_backup_${email}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  });
+}
+
+// ========= Import Vault Metadata (Admin) =========
+if (inputImportMeta) {
+  inputImportMeta.addEventListener("change", async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const arr = JSON.parse(text);
+      if (!Array.isArray(arr)) {
+        throw new Error("Invalid metadata JSON: expected an array");
+      }
+
+      // 1) In-memory metadata ကို overwrite
+      metadata = arr;
+
+      // 2) Drive + local cache ထဲကို save
+      //    (saveMetadata() က ထဲမှာ ensureMetadataFile() ကိုခေါ်ပြီး
+      //     vault_meta.json မရှိသေးရင် ဖန်တီးပေးမယ်)
+      try {
+        await saveMetadata();
+      } catch (err) {
+        console.warn("saveMetadata after import failed", err);
+      }
+
+      // 3) UI refresh
+      renderVaultList();
+      renderDashboard();
+      renderActivity();
+
+      // 4) Toast / Alert
+      if (typeof showToast === "function") {
+        showToast("Vault data imported on this device.");
+      } else {
+        alert("Imported vault data.");
+      }
+    } catch (err) {
+      console.error("Import failed", err);
+      alert("Import failed: " + (err.message || err));
+    } finally {
+      e.target.value = "";
+    }
+  });
+}

@@ -989,6 +989,17 @@ footer {
   }
 }
 
+.admin-tools {
+  margin-top: 1rem;
+}
+
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
 /* ======================
    BIG VAULT CATEGORY CARDS START
    ====================== */

@@ -164,7 +164,7 @@
 
             <div class="form-row">
               <label>File</label>
-              <input type="file" id="file-input" multiple required />
+              <input type="file" id="file-input" multiple />
             </div>
 
             <button type="submit" class="btn full primary">
@@ -353,23 +353,23 @@
 
             <h3>Metadata Structure</h3>
             <pre><code>{
-  id: "drive-file-id",
-  title: "2024 Tax Return",
-  category: "tax",
-  tags: ["tax", "2024", "irs"],
-  album: "2024",
-  date: "2024-04-15",
-  originalName: "2024_tax_return.pdf",
-  size: 123456,
-  mimeType: "application/pdf",
-  iv: "base64-iv",
-  salt: "base64-salt",
-  createdAt: "2024-04-16T12:34:56.789Z",
-  logs: [
-    { type: "upload", ts: "2024-04-16T12:34:56.789Z" },
-    { type: "rekey",  ts: "2025-01-01T09:00:00.000Z" }
-  ]
-}</code></pre>
+              id: "drive-file-id",
+              title: "2024 Tax Return",
+              category: "tax",
+              tags: ["tax", "2024", "irs"],
+              album: "2024",
+              date: "2024-04-15",
+              originalName: "2024_tax_return.pdf",
+              size: 123456,
+              mimeType: "application/pdf",
+              iv: "base64-iv",
+              salt: "base64-salt",
+              createdAt: "2024-04-16T12:34:56.789Z",
+              logs: [
+                { type: "upload", ts: "2024-04-16T12:34:56.789Z" },
+                { type: "rekey",  ts: "2025-01-01T09:00:00.000Z" }
+              ]
+            }</code></pre>
 
             <h3>Category အသစ်ထည့်နည်း (short)</h3>
             <ol>
@@ -379,11 +379,11 @@
               </li>
             </ol>
             <pre><code>const CATEGORY_CONFIG = {
-  tax:     { label: "Tax Returns",     icon: "📄", color: "#38bdf8" },
-  ...
-  medical: { label: "Medical Records", icon: "🩺", color: "#10b981" },
-  other:   { label: "Other",           icon: "📁", color: "#9ca3af" },
-};</code></pre>
+                tax:     { label: "Tax Returns",     icon: "📄", color: "#38bdf8" },
+                ...
+                medical: { label: "Medical Records", icon: "🩺", color: "#10b981" },
+                other:   { label: "Other",           icon: "📁", color: "#9ca3af" },
+              };</code></pre>
 
             <ol start="2">
               <li>
@@ -403,6 +403,29 @@
                 <code>other</code> ကို default သတ်မယ်။
               </li>
             </ol>
+          </div>
+        </section>
+
+        <section class="card admin-tools">
+          <h2>Vault Data Tools (Admin)</h2>
+          <p class="hint">
+            Export your vault metadata as JSON (backup) or import it on another
+            device.
+          </p>
+          <div class="admin-actions">
+            <button id="btn-export-meta" class="btn small ghost">
+              Export Vault Data
+            </button>
+
+            <label class="btn small ghost">
+              Import Vault Data
+              <input
+                type="file"
+                id="input-import-meta"
+                accept="application/json"
+                hidden
+              />
+            </label>
           </div>
         </section>
 
